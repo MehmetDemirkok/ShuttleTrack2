@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyBPzYBtdREjPrM_9X188q0Un7MZd7gxyUw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>164670173349</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.company.shuttletrackapp</string>
+	<key>PROJECT_ID</key>
+	<string>shuttletrack-84ced</string>
+	<key>STORAGE_BUCKET</key>
+	<string>shuttletrack-84ced.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:164670173349:ios:e84b0a6a420ebd7d4fdd4c</string>
+</dict>
+</plist>
