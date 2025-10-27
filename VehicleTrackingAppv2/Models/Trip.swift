@@ -57,7 +57,7 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
         case .completed:
             return "Tamamlandı"
         case .cancelled:
-            return "İptal Edild"
+            return "İptal Edildi"
         }
     }
     
