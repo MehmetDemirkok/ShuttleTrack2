@@ -8,6 +8,8 @@ struct ProfileView: View {
     @StateObject private var statisticsService = StatisticsService()
     @State private var showingLogoutAlert = false
     @State private var showingEditProfile = false
+    @State private var showingSettings = false
+    @State private var showingHelpSupport = false
     
     var body: some View {
         NavigationView {
@@ -155,7 +157,7 @@ struct ProfileView: View {
                                     icon: "gearshape.fill",
                                     iconColor: .gray
                                 ) {
-                                    // Settings action
+                                    showingSettings = true
                                 }
                                 
                                 ProfileActionButton(
@@ -163,7 +165,7 @@ struct ProfileView: View {
                                     icon: "questionmark.circle.fill",
                                     iconColor: .green
                                 ) {
-                                    // Help action
+                                    showingHelpSupport = true
                                 }
                             }
                         }
@@ -214,6 +216,12 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingEditProfile) {
                 EditProfileView()
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
+            .sheet(isPresented: $showingHelpSupport) {
+                HelpSupportView()
             }
             .onAppear {
                 if let companyId = appViewModel.currentCompany?.id {
