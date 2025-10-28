@@ -10,7 +10,7 @@ struct AddEditVehicleView: View {
     @State private var brand = ""
     @State private var year = Calendar.current.component(.year, from: Date())
     @State private var capacity = 4
-    @State private var vehicleType = VehicleType.sedan
+    @State private var vehicleType = VehicleType.automobile
     @State private var color = ""
     @State private var insuranceExpiryDate = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
     @State private var inspectionExpiryDate = Calendar.current.date(byAdding: .month, value: 6, to: Date()) ?? Date()

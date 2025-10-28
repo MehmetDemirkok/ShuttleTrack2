@@ -3,10 +3,12 @@ import CoreLocation
 import SwiftUI
 
 enum VehicleType: String, CaseIterable, Codable {
-    case sedan = "Sedan"
-    case suv = "SUV"
-    case minivan = "Minivan"
+    case automobile = "Otomobil"
+    case minibus = "Minibüs"
+    case midibus = "Midibus"
     case bus = "Otobüs"
+    case truck = "Kamyon"
+    case minivan = "Minivan"
     case van = "Van"
     case pickup = "Pickup"
     

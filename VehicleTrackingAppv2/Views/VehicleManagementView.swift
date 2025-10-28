@@ -101,34 +101,42 @@ struct VehicleRowView: View {
     // Araç ikonu
     private var vehicleIcon: String {
         switch vehicle.vehicleType {
-        case .sedan:
+        case .automobile:
             return "car.fill"
-        case .suv:
-            return "car.fill"
-        case .minivan:
-            return "car.fill"
+        case .minibus:
+            return "bus"
+        case .midibus:
+            return "bus"
         case .bus:
             return "bus.fill"
+        case .truck:
+            return "box.truck.fill"
+        case .minivan:
+            return "car"
         case .van:
-            return "car.fill"
+            return "car"
         case .pickup:
-            return "car.fill"
+            return "car"
         }
     }
     
     // Araç ikon rengi
     private var vehicleIconColor: Color {
         switch vehicle.vehicleType {
-        case .sedan:
+        case .automobile:
             return .blue
-        case .suv:
-            return Color.green
-        case .minivan:
-            return .orange
+        case .minibus:
+            return .green
+        case .midibus:
+            return .teal
         case .bus:
             return .purple
+        case .truck:
+            return .red
+        case .minivan:
+            return .orange
         case .van:
-            return Color.red
+            return .indigo
         case .pickup:
             return .brown
         }
@@ -764,34 +772,42 @@ struct VehicleDetailView: View {
     // Araç ikonu
     private var vehicleIcon: String {
         switch vehicle.vehicleType {
-        case .sedan:
+        case .automobile:
             return "car.fill"
-        case .suv:
-            return "car.fill"
-        case .minivan:
-            return "car.fill"
+        case .minibus:
+            return "bus"
+        case .midibus:
+            return "bus"
         case .bus:
             return "bus.fill"
+        case .truck:
+            return "box.truck.fill"
+        case .minivan:
+            return "car"
         case .van:
-            return "car.fill"
+            return "car"
         case .pickup:
-            return "car.fill"
+            return "car"
         }
     }
     
     // Araç ikon rengi
     private var vehicleIconColor: Color {
         switch vehicle.vehicleType {
-        case .sedan:
+        case .automobile:
             return .blue
-        case .suv:
+        case .minibus:
             return Color.green
-        case .minivan:
-            return .orange
+        case .midibus:
+            return .teal
         case .bus:
             return .purple
-        case .van:
+        case .truck:
             return Color.red
+        case .minivan:
+            return .orange
+        case .van:
+            return Color.indigo
         case .pickup:
             return .brown
         }
