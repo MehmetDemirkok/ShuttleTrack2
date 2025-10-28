@@ -64,12 +64,14 @@ struct DriverManagementView: View {
                         .padding()
                 }
             }
+            .background(ShuttleTrackTheme.Colors.background)
             .navigationTitle("Sürücüler")
             .navigationBarItems(
                 trailing: Button(action: {
                     showingAddDriver = true
                 }) {
                     Image(systemName: "plus")
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
             )
             .onAppear {

@@ -64,12 +64,14 @@ struct VehicleManagementView: View {
                         .padding()
                 }
             }
+            .background(ShuttleTrackTheme.Colors.background)
             .navigationTitle("Araçlar")
             .navigationBarItems(
                 trailing: Button(action: {
                     showingAddVehicle = true
                 }) {
                     Image(systemName: "plus")
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
             )
             .onAppear {

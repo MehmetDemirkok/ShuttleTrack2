@@ -72,17 +72,24 @@ struct TripAssignmentView: View {
                         .padding()
                 }
             }
+<<<<<<< HEAD
             .navigationTitle("Transfer Yönetimi")
+=======
+            .background(ShuttleTrackTheme.Colors.background)
+            .navigationTitle("İşler")
+>>>>>>> main
             .navigationBarItems(
                 leading: Button(action: {
                     showingExportOptions = true
                 }) {
                     Image(systemName: "square.and.arrow.up")
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 },
                 trailing: Button(action: {
                     showingAddTrip = true
                 }) {
                     Image(systemName: "plus")
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
             )
             .onAppear {
