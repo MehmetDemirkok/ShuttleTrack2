@@ -2,6 +2,7 @@ import Foundation
 import FirebaseFirestore
 import CoreLocation
 import FirebaseFirestoreSwift
+import SwiftUI
 
 struct Trip: Identifiable, Codable, @unchecked Sendable {
     @DocumentID var id: String?
@@ -28,6 +29,22 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
         case inProgress = "in_progress"
         case completed = "completed"
         case cancelled = "cancelled"
+    }
+    
+    // Türkçe kısaltmalar için computed property
+    var statusShortText: String {
+        switch status {
+        case .scheduled:
+            return "Planlandı"
+        case .assigned:
+            return "Atandı"
+        case .inProgress:
+            return "Devam"
+        case .completed:
+            return "Tamam"
+        case .cancelled:
+            return "İptal"
+        }
     }
     
     init(companyId: String, vehicleId: String, driverId: String, tripNumber: String, pickupLocation: TripLocation, dropoffLocation: TripLocation, scheduledPickupTime: Date, scheduledDropoffTime: Date, passengerCount: Int) {
@@ -61,18 +78,18 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
         }
     }
     
-    var statusColor: String {
+    var statusColor: Color {
         switch status {
         case .scheduled:
-            return "orange"
+            return .orange
         case .assigned:
-            return "blue"
+            return .blue
         case .inProgress:
-            return "green"
+            return .green
         case .completed:
-            return "gray"
+            return .gray
         case .cancelled:
-            return "red"
+            return .red
         }
     }
     

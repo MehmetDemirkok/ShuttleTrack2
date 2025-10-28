@@ -17,7 +17,7 @@ struct TripAssignmentView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // Filtre - Araçlar sayfası stiline uygun kompakt başlık
+                // Filtre
                 HStack {
                     Picker("Durum", selection: $selectedStatus) {
                         Text("Tümü").tag(nil as Trip.TripStatus?)
@@ -29,6 +29,33 @@ struct TripAssignmentView: View {
                 }
                 .padding(.horizontal)
                 
+                // Horizontal Scrollable Filter Buttons
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Tümü butonu
+                        FilterButton(
+                            title: "Tümü",
+                            isSelected: selectedStatus == nil,
+                            action: { selectedStatus = nil }
+                        )
+                        
+                        // Diğer status butonları
+                        ForEach(Trip.TripStatus.allCases, id: \.self) { status in
+                            FilterButton(
+                                title: status.statusShortText,
+                                isSelected: selectedStatus == status,
+                                action: { selectedStatus = status }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .padding(.vertical, 16)
+                
+                Divider()
+                    .background(Color.gray.opacity(0.3))
+                
+                // İçerik
                 if viewModel.isLoading {
                     ProgressView("İşler yükleniyor...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -61,6 +88,7 @@ struct TripAssignmentView: View {
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.hidden)
                         }
+                        .padding(.top, 8)
                     }
                     .listStyle(PlainListStyle())
                 }
@@ -72,24 +100,17 @@ struct TripAssignmentView: View {
                         .padding()
                 }
             }
-<<<<<<< HEAD
             .navigationTitle("Transfer Yönetimi")
-=======
-            .background(ShuttleTrackTheme.Colors.background)
-            .navigationTitle("İşler")
->>>>>>> main
             .navigationBarItems(
                 leading: Button(action: {
                     showingExportOptions = true
                 }) {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 },
                 trailing: Button(action: {
                     showingAddTrip = true
                 }) {
                     Image(systemName: "plus")
-                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
             )
             .onAppear {
@@ -529,6 +550,28 @@ struct TripDetailView: View {
 struct TripAssignmentView_Previews: PreviewProvider {
     static var previews: some View {
         TripAssignmentView()
+    }
+}
+
+// MARK: - FilterButton Component
+struct FilterButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(isSelected ? .white : .primary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(isSelected ? ShuttleTrackTheme.Colors.primaryBlue : Color.gray.opacity(0.1))
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

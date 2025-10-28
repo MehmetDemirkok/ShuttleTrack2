@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 struct Driver: Identifiable, Codable {
     let id: String
@@ -36,8 +37,8 @@ struct Driver: Identifiable, Codable {
         return isActive ? "Aktif" : "Pasif"
     }
     
-    var statusColor: String {
-        return isActive ? "green" : "red"
+    var statusColor: Color {
+        return isActive ? .green : .red
     }
     
 }
