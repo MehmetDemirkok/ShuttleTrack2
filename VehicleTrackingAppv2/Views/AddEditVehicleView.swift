@@ -43,115 +43,315 @@ struct AddEditVehicleView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Araç Bilgileri")) {
-                    TextField("Plaka", text: $plateNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    TextField("Marka", text: $brand)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    TextField("Model", text: $model)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    Stepper("Yıl: \(formattedYear)", value: $year, in: 1990...Calendar.current.component(.year, from: Date()))
-                    
-                    Stepper("Kapasite: \(capacity) kişi", value: $capacity, in: 1...50)
-                    
-                    Picker("Araç Tipi", selection: $vehicleType) {
-                        ForEach(VehicleType.allCases, id: \.self) { type in
-                            Text(type.displayName).tag(type)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    
-                    TextField("Renk", text: $color)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                
-                Section(header: Text("Sigorta ve Muayene")) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        DatePicker("Sigorta Bitiş Tarihi", 
-                                  selection: $insuranceExpiryDate, 
-                                  displayedComponents: .date)
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Araç Bilgileri
+                    FormCard {
+                        FormSectionHeader(title: "Araç Bilgileri", icon: "car.fill", iconColor: ShuttleTrackTheme.Colors.vehicleIcon)
                         
-                        // Sigorta kalan gün sayısı
-                        HStack {
-                            Text("Sigorta Durumu:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        FormInputField(
+                            title: "Plaka",
+                            placeholder: "Plaka",
+                            icon: "number",
+                            iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                            text: $plateNumber
+                        )
+                        
+                        FormInputField(
+                            title: "Marka",
+                            placeholder: "Marka",
+                            icon: "car.fill",
+                            iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                            text: $brand
+                        )
+                        
+                        FormInputField(
+                            title: "Model",
+                            placeholder: "Model",
+                            icon: "car.fill",
+                            iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                            text: $model
+                        )
+                        
+                        // Yıl Counter
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.calendarIcon)
+                                    .frame(width: 20, height: 20)
+                                
+                                Text("Yıl")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                            }
                             
-                            Spacer()
+                            HStack {
+                                Button(action: {
+                                    if year > 1990 {
+                                        year -= 1
+                                    }
+                                }) {
+                                    Image(systemName: "minus")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                        .frame(width: 32, height: 32)
+                                        .background(ShuttleTrackTheme.Colors.inputBackground)
+                                        .cornerRadius(8)
+                                }
+                                .disabled(year <= 1990)
+                                
+                                Spacer()
+                                
+                                Text("\(year)")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    .frame(minWidth: 40)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    if year < Calendar.current.component(.year, from: Date()) {
+                                        year += 1
+                                    }
+                                }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                        .frame(width: 32, height: 32)
+                                        .background(ShuttleTrackTheme.Colors.inputBackground)
+                                        .cornerRadius(8)
+                                }
+                                .disabled(year >= Calendar.current.component(.year, from: Date()))
+                            }
+                            .padding(12)
+                            .background(ShuttleTrackTheme.Colors.inputBackground)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+                        
+                        FormCounterField(
+                            title: "Kapasite",
+                            icon: "person.2",
+                            iconColor: ShuttleTrackTheme.Colors.personIcon,
+                            value: $capacity,
+                            minValue: 1,
+                            maxValue: 50
+                        )
+                        
+                        FormPickerField(
+                            title: "Araç Tipi",
+                            icon: "car.fill",
+                            iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                            selection: Binding(
+                                get: { vehicleType.displayName },
+                                set: { newValue in
+                                    if let newType = VehicleType.allCases.first(where: { $0.displayName == newValue }) {
+                                        vehicleType = newType
+                                    }
+                                }
+                            ),
+                            options: VehicleType.allCases.map { $0.displayName }
+                        )
+                        
+                        FormInputField(
+                            title: "Renk",
+                            placeholder: "Renk",
+                            icon: "paintbrush.fill",
+                            iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                            text: $color
+                        )
+                    }
+                    
+                    // Sigorta ve Muayene
+                    FormCard {
+                        FormSectionHeader(title: "Sigorta ve Muayene", icon: "doc.text.fill", iconColor: ShuttleTrackTheme.Colors.documentIcon)
+                        
+                        // Sigorta Bitiş Tarihi
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.calendarIcon)
+                                    .frame(width: 20, height: 20)
+                                
+                                Text("Sigorta Bitiş Tarihi")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                            }
                             
-                            let insuranceDays = daysUntilExpiry(insuranceExpiryDate)
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(insuranceDays < 0 ? Color.red : (insuranceDays <= 30 ? Color.orange : Color.green))
-                                    .frame(width: 6, height: 6)
+                            DatePicker("", selection: $insuranceExpiryDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .padding(12)
+                                .background(ShuttleTrackTheme.Colors.inputBackground)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
+                                )
+                            
+                            // Sigorta Durumu
+                            HStack {
+                                Text("Sigorta Durumu:")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+                                
+                                Spacer()
+                                
+                                let insuranceDays = daysUntilExpiry(insuranceExpiryDate)
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(insuranceDays < 0 ? ShuttleTrackTheme.Colors.error : (insuranceDays <= 30 ? ShuttleTrackTheme.Colors.warning : ShuttleTrackTheme.Colors.success))
+                                        .frame(width: 8, height: 8)
                                 
                                 Text(insuranceDays < 0 ? "Süresi Dolmuş" : (insuranceDays <= 30 ? "\(insuranceDays) gün kaldı" : "Geçerli"))
-                                    .font(.caption)
-                                    .foregroundColor(insuranceDays < 0 ? .red : (insuranceDays <= 30 ? .orange : .green))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(insuranceDays < 0 ? ShuttleTrackTheme.Colors.error : (insuranceDays <= 30 ? ShuttleTrackTheme.Colors.warning : ShuttleTrackTheme.Colors.success))
+                                }
                             }
                         }
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        DatePicker("Muayene Bitiş Tarihi", 
-                                  selection: $inspectionExpiryDate, 
-                                  displayedComponents: .date)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
                         
-                        // Muayene kalan gün sayısı
-                        HStack {
-                            Text("Muayene Durumu:")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        // Muayene Bitiş Tarihi
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.calendarIcon)
+                                    .frame(width: 20, height: 20)
+                                
+                                Text("Muayene Bitiş Tarihi")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                            }
                             
-                            Spacer()
+                            DatePicker("", selection: $inspectionExpiryDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .padding(12)
+                                .background(ShuttleTrackTheme.Colors.inputBackground)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
+                                )
                             
-                            let inspectionDays = daysUntilExpiry(inspectionExpiryDate)
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(inspectionDays < 0 ? Color.red : (inspectionDays <= 30 ? Color.orange : Color.green))
-                                    .frame(width: 6, height: 6)
+                            // Muayene Durumu
+                            HStack {
+                                Text("Muayene Durumu:")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+                                
+                                Spacer()
+                                
+                                let inspectionDays = daysUntilExpiry(inspectionExpiryDate)
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(inspectionDays < 0 ? ShuttleTrackTheme.Colors.error : (inspectionDays <= 30 ? ShuttleTrackTheme.Colors.warning : ShuttleTrackTheme.Colors.success))
+                                        .frame(width: 8, height: 8)
                                 
                                 Text(inspectionDays < 0 ? "Süresi Dolmuş" : (inspectionDays <= 30 ? "\(inspectionDays) gün kaldı" : "Geçerli"))
-                                    .font(.caption)
-                                    .foregroundColor(inspectionDays < 0 ? .red : (inspectionDays <= 30 ? .orange : .green))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(inspectionDays < 0 ? ShuttleTrackTheme.Colors.error : (inspectionDays <= 30 ? ShuttleTrackTheme.Colors.warning : ShuttleTrackTheme.Colors.success))
+                                }
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
                     }
-                }
-                
-                Section(header: Text("Durum")) {
-                    Toggle("Aktif", isOn: $isActive)
-                }
-                
+                    
+                    // Durum
+                    FormCard {
+                        FormSectionHeader(title: "Durum", icon: "power", iconColor: ShuttleTrackTheme.Colors.info)
+                        
+                        FormToggleField(
+                            title: "Aktif",
+                            icon: "power",
+                            iconColor: ShuttleTrackTheme.Colors.info,
+                            isOn: $isActive
+                        )
+                    }
+                    
+                    // Hata Mesajı
                 if !errorMessage.isEmpty {
-                    Section {
+                        VStack {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
                         Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
+                            }
+                            .padding()
+                            .background(ShuttleTrackTheme.Colors.error.opacity(0.1))
+                            .cornerRadius(12)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
                     }
+                    
+                    // Bottom padding
+                    Spacer(minLength: 100)
                 }
             }
+            .background(ShuttleTrackTheme.Colors.background)
             .navigationTitle(isEditing ? "Araç Düzenle" : "Yeni Araç")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
-                leading: Button("İptal") {
+                leading: Button(action: {
                     presentationMode.wrappedValue.dismiss()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                        Text("İptal")
+                    }
+                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 },
-                trailing: Button("Kaydet") {
-                    saveVehicle()
+                trailing: Button(action: {
+                    Task {
+                        await saveVehicle()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark")
+                        Text("Kaydet")
+                    }
+                    .fontWeight(.semibold)
+                    .foregroundColor(isFormValid ? ShuttleTrackTheme.Colors.primaryBlue : ShuttleTrackTheme.Colors.tertiaryText)
                 }
-                .disabled(isLoading || plateNumber.isEmpty || brand.isEmpty || model.isEmpty)
+                .disabled(!isFormValid || isLoading)
+            )
+            .overlay(
+                Group {
+                    if isLoading {
+                        ZStack {
+                            Color.black.opacity(0.3)
+                                .ignoresSafeArea()
+                            
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.5)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                
+                                Text("Kaydediliyor...")
+                                    .foregroundColor(.white)
+                                    .font(.headline)
+                            }
+                            .padding(30)
+                            .background(Color.black.opacity(0.8))
+                            .cornerRadius(16)
+                        }
+                    }
+                }
             )
         }
-    }
-    
-    // Yıl değerini formatla
-    private var formattedYear: String {
-        return "\(year)"
     }
     
     // Kalan gün sayısını hesapla
@@ -163,7 +363,11 @@ struct AddEditVehicleView: View {
         return days
     }
     
-    private func saveVehicle() {
+    private var isFormValid: Bool {
+        !plateNumber.isEmpty && !brand.isEmpty && !model.isEmpty
+    }
+    
+    private func saveVehicle() async {
         isLoading = true
         errorMessage = ""
         
@@ -195,13 +399,14 @@ struct AddEditVehicleView: View {
         }
         
         // Simulate save completion
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye
+        
             isLoading = false
+        
             if viewModel.errorMessage.isEmpty {
                 presentationMode.wrappedValue.dismiss()
             } else {
                 errorMessage = viewModel.errorMessage
-            }
         }
     }
 }

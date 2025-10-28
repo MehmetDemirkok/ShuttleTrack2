@@ -87,255 +87,241 @@ struct AddEditTripView: View {
     
     var body: some View {
         NavigationView {
-            Form {
+            ScrollView {
+                VStack(spacing: 0) {
                 // Transfer Bilgileri
-                Section(header: sectionHeader(title: "Transfer Bilgileri", icon: "airplane")) {
-                    // Transfer No - Sadece görüntüleme (otomatik oluşturulacak)
+                    FormCard {
+                        FormSectionHeader(title: "Transfer Bilgileri", icon: "airplane", iconColor: ShuttleTrackTheme.Colors.info)
+                        
+                        // Transfer No - Sadece görüntüleme
                     if !tripNumber.isEmpty {
-                        HStack {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 8) {
                             Image(systemName: "number")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.info)
+                                        .frame(width: 20, height: 20)
+                                    
                             Text("Transfer No")
-                                .foregroundColor(.secondary)
-                            Spacer()
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                                }
+                                
                             Text(tripNumber)
-                                .foregroundColor(.primary)
-                                .fontWeight(.semibold)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    .padding(12)
+                                    .background(ShuttleTrackTheme.Colors.inputBackground)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
+                                    )
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 16)
                         }
-                    } else {
-                        HStack {
-                            Image(systemName: "number")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
-                            Text("Transfer No")
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("Otomatik oluşturulacak")
-                                .foregroundColor(.orange)
-                                .font(.caption)
-                                .italic()
-                        }
-                    }
-                    
-                    HStack {
-                        Image(systemName: "airplane.departure")
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        TextField("Uçuş No (Opsiyonel)", text: $flightNumber)
-                    }
-                    
-                    HStack {
-                        Image(systemName: "person.2")
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        Stepper("Yolcu Sayısı: \(passengerCount)", value: $passengerCount, in: 1...20)
-                    }
+                        
+                        FormInputField(
+                            title: "Uçuş No (Opsiyonel)",
+                            placeholder: "Uçuş No",
+                            icon: "airplane.departure",
+                            iconColor: ShuttleTrackTheme.Colors.info,
+                            text: $flightNumber
+                        )
+                        
+                        FormCounterField(
+                            title: "Yolcu Sayısı",
+                            icon: "person.2",
+                            iconColor: ShuttleTrackTheme.Colors.info,
+                            value: $passengerCount,
+                            minValue: 1,
+                            maxValue: 20
+                        )
                 }
                 
                 // Yolcu Bilgileri
-                Section(header: sectionHeader(title: "Yolcu Bilgileri", icon: "person.fill")) {
-                    HStack {
-                        Image(systemName: "person.text.rectangle")
-                            .foregroundColor(.purple)
-                            .frame(width: 24)
-                        TextField("Yolcu Adı (Opsiyonel)", text: $passengerName)
-                    }
-                    
-                    HStack {
-                        Image(systemName: "phone.fill")
-                            .foregroundColor(.purple)
-                            .frame(width: 24)
-                        TextField("Telefon (Opsiyonel)", text: $passengerPhone)
-                            .keyboardType(.phonePad)
-                    }
-                }
-                
-                // Alış Noktası
-                Section(header: sectionHeader(title: "Alış Noktası", icon: "location.circle.fill")) {
-                    HStack {
-                        Image(systemName: "mappin.circle.fill")
-                            .foregroundColor(.green)
-                            .frame(width: 24)
-                        TextField("Lokasyon (ör: Havalimanı)", text: $pickupLocationName)
-                    }
-                    
-                    HStack(alignment: .top) {
-                        Image(systemName: "map.fill")
-                            .foregroundColor(.green)
-                            .frame(width: 24)
-                            .padding(.top, 8)
+                    FormCard {
+                        FormSectionHeader(title: "Yolcu Bilgileri", icon: "person.fill", iconColor: ShuttleTrackTheme.Colors.personIcon)
                         
-                        ZStack(alignment: .topLeading) {
-                            if pickupAddress.isEmpty {
-                                Text("Alış adresini buraya yazın\n(ör: Antalya Havalimanı, Dış Hatlar Terminali, Kapı 3)")
-                                    .foregroundColor(.gray.opacity(0.6))
-                                    .font(.body)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 8)
-                            }
-                            
-                            TextEditor(text: $pickupAddress)
-                                .frame(minHeight: 60)
-                                .opacity(pickupAddress.isEmpty ? 0.5 : 1)
-                        }
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        FormInputField(
+                            title: "Yolcu Adı (Opsiyonel)",
+                            placeholder: "Yolcu Adı",
+                            icon: "person.text.rectangle",
+                            iconColor: ShuttleTrackTheme.Colors.personIcon,
+                            text: $passengerName
+                        )
+                        
+                        FormInputField(
+                            title: "Telefon (Opsiyonel)",
+                            placeholder: "Telefon",
+                            icon: "phone.fill",
+                            iconColor: ShuttleTrackTheme.Colors.phoneIcon,
+                            text: $passengerPhone,
+                            keyboardType: .phonePad
                         )
                     }
-                    .padding(.vertical, 4)
-                }
-                
-                // Bırakış Noktası
-                Section(header: sectionHeader(title: "Bırakış Noktası", icon: "location.fill")) {
-                    HStack {
-                        Image(systemName: "mappin.circle.fill")
-                            .foregroundColor(.orange)
-                            .frame(width: 24)
-                        TextField("Lokasyon (ör: Otel)", text: $dropoffLocationName)
-                    }
                     
-                    HStack(alignment: .top) {
-                        Image(systemName: "map.fill")
-                            .foregroundColor(.orange)
-                            .frame(width: 24)
-                            .padding(.top, 8)
+                    // Alış Noktası
+                    FormCard {
+                        FormSectionHeader(title: "Alış Noktası", icon: "location.circle.fill", iconColor: ShuttleTrackTheme.Colors.pickupIcon)
                         
-                        ZStack(alignment: .topLeading) {
-                            if dropoffAddress.isEmpty {
-                                Text("Bırakış adresini buraya yazın\n(ör: Lara Beach Hotel, Güzeloba Mah. Lara Cad. No:12)")
-                                    .foregroundColor(.gray.opacity(0.6))
-                                    .font(.body)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 8)
-                            }
-                            
-                            TextEditor(text: $dropoffAddress)
-                                .frame(minHeight: 60)
-                                .opacity(dropoffAddress.isEmpty ? 0.5 : 1)
-                        }
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        FormInputField(
+                            title: "Lokasyon (ör: Havalimanı)",
+                            placeholder: "Lokasyon",
+                            icon: "mappin.circle.fill",
+                            iconColor: ShuttleTrackTheme.Colors.pickupIcon,
+                            text: $pickupLocationName
+                        )
+                        
+                        FormInputField(
+                            title: "Alış adresini buraya yazın",
+                            placeholder: "(ör: Antalya Havalimanı, Dış Hatlar Terminali, Kapı 3)",
+                            icon: "map.fill",
+                            iconColor: ShuttleTrackTheme.Colors.pickupIcon,
+                            text: $pickupAddress,
+                            isMultiline: true
                         )
                     }
-                    .padding(.vertical, 4)
-                }
-                
-                // Tarih ve Saat
-                Section(header: sectionHeader(title: "Tarih ve Saat", icon: "clock.fill")) {
-                    HStack {
-                        Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        DatePicker("Alış Zamanı", selection: $scheduledPickupTime)
-                    }
                     
-                    HStack {
-                        Image(systemName: "calendar.badge.checkmark")
-                            .foregroundColor(.blue)
-                            .frame(width: 24)
-                        DatePicker("Bırakış Zamanı", selection: $scheduledDropoffTime)
-                    }
-                }
-                
-                // Ücret ve Notlar
-                Section(header: sectionHeader(title: "Ücret ve Notlar", icon: "banknote")) {
-                    HStack {
-                        Image(systemName: "turkishlirasign.circle.fill")
-                            .foregroundColor(.green)
-                            .frame(width: 24)
-                        TextField("Ücret (TL)", text: $fare)
-                            .keyboardType(.decimalPad)
-                    }
-                    
-                    HStack(alignment: .top) {
-                        Image(systemName: "note.text")
-                            .foregroundColor(.gray)
-                            .frame(width: 24)
-                            .padding(.top, 8)
+                    // Bırakış Noktası
+                    FormCard {
+                        FormSectionHeader(title: "Bırakış Noktası", icon: "location.fill", iconColor: ShuttleTrackTheme.Colors.dropoffIcon)
                         
-                        ZStack(alignment: .topLeading) {
-                            if notes.isEmpty {
-                                Text("Notlar (Opsiyonel)\n(ör: VIP araç talep edildi, Bebek koltuğu gerekli, vb.)")
-                                    .foregroundColor(.gray.opacity(0.6))
-                                    .font(.body)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 8)
-                            }
-                            
-                            TextEditor(text: $notes)
-                                .frame(minHeight: 80)
-                                .opacity(notes.isEmpty ? 0.5 : 1)
-                        }
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        FormInputField(
+                            title: "Lokasyon (ör: Otel)",
+                            placeholder: "Lokasyon",
+                            icon: "mappin.circle.fill",
+                            iconColor: ShuttleTrackTheme.Colors.dropoffIcon,
+                            text: $dropoffLocationName
+                        )
+                        
+                        FormInputField(
+                            title: "Bırakış adresini buraya yazın",
+                            placeholder: "(ör: Lara Beach Hotel, Güzeloba Mah. Lara Cad. No:12)",
+                            icon: "map.fill",
+                            iconColor: ShuttleTrackTheme.Colors.dropoffIcon,
+                            text: $dropoffAddress,
+                            isMultiline: true
                         )
                     }
-                    .padding(.vertical, 4)
+                    
+                    // Tarih ve Saat
+                    FormCard {
+                        FormSectionHeader(title: "Tarih ve Saat", icon: "clock.fill", iconColor: ShuttleTrackTheme.Colors.timeIcon)
+                        
+                        FormDateTimeField(
+                            title: "Alış Zamanı",
+                            icon: "calendar.badge.clock",
+                            iconColor: ShuttleTrackTheme.Colors.timeIcon,
+                            date: $scheduledPickupTime,
+                            time: $scheduledPickupTime
+                        )
+                        
+                        FormDateTimeField(
+                            title: "Bırakış Zamanı",
+                            icon: "calendar.badge.checkmark",
+                            iconColor: ShuttleTrackTheme.Colors.timeIcon,
+                            date: $scheduledDropoffTime,
+                            time: $scheduledDropoffTime
+                        )
+                    }
+                    
+                    // Ücret ve Notlar
+                    FormCard {
+                        FormSectionHeader(title: "Ücret ve Notlar", icon: "banknote", iconColor: ShuttleTrackTheme.Colors.priceIcon)
+                        
+                        FormInputField(
+                            title: "Ücret (TL)",
+                            placeholder: "Ücret",
+                            icon: "turkishlirasign.circle.fill",
+                            iconColor: ShuttleTrackTheme.Colors.priceIcon,
+                            text: $fare,
+                            keyboardType: .decimalPad
+                        )
+                        
+                        FormInputField(
+                            title: "Notlar (Opsiyonel)",
+                            placeholder: "(ör: VIP araç talep edildi, Bebek koltuğu gerekli, vb.)",
+                            icon: "note.text",
+                            iconColor: ShuttleTrackTheme.Colors.documentIcon,
+                            text: $notes,
+                            isMultiline: true
+                        )
                 }
                 
                 // Atama (Sadece düzenleme modunda)
                 if isEditing {
-                    Section(header: sectionHeader(title: "Atama", icon: "person.crop.circle.badge.checkmark")) {
-                        Picker(selection: $selectedVehicleId) {
-                            Text("Araç Seçiniz").tag(nil as String?)
-                            ForEach(viewModel.vehicles, id: \.id) { vehicle in
-                                HStack {
-                                    Image(systemName: "car.fill")
-                                    Text(vehicle.displayName)
-                                }
-                                .tag(vehicle.id as String?)
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: "car.fill")
-                                    .foregroundColor(.blue)
-                                    .frame(width: 24)
-                                Text("Araç")
-                            }
+                        FormCard {
+                            FormSectionHeader(title: "Atama", icon: "person.crop.circle.badge.checkmark", iconColor: ShuttleTrackTheme.Colors.info)
+                            
+                            FormPickerField(
+                                title: "Araç",
+                                icon: "car.fill",
+                                iconColor: ShuttleTrackTheme.Colors.vehicleIcon,
+                                selection: Binding(
+                                    get: { selectedVehicleId ?? "" },
+                                    set: { selectedVehicleId = $0.isEmpty ? nil : $0 }
+                                ),
+                                options: [""] + viewModel.vehicles.map { $0.displayName }
+                            )
+                            
+                            FormPickerField(
+                                title: "Sürücü",
+                                icon: "person.fill",
+                                iconColor: ShuttleTrackTheme.Colors.personIcon,
+                                selection: Binding(
+                                    get: { selectedDriverId ?? "" },
+                                    set: { selectedDriverId = $0.isEmpty ? nil : $0 }
+                                ),
+                                options: [""] + viewModel.drivers.map { $0.fullName }
+                            )
                         }
                         
-                        Picker(selection: $selectedDriverId) {
-                            Text("Sürücü Seçiniz").tag(nil as String?)
-                            ForEach(viewModel.drivers, id: \.id) { driver in
-                                HStack {
-                                    Image(systemName: "person.fill")
-                                    Text(driver.fullName)
+                        FormCard {
+                            FormSectionHeader(title: "Durum", icon: "flag.fill", iconColor: ShuttleTrackTheme.Colors.info)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Transfer Durumu")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                                    .padding(.horizontal, 20)
+                                
+                                Picker("Transfer Durumu", selection: $status) {
+                                    ForEach(Trip.TripStatus.allCases, id: \.self) { status in
+                                        Text(statusText(for: status)).tag(status)
+                                    }
                                 }
-                                .tag(driver.id as String?)
+                                .pickerStyle(SegmentedPickerStyle())
+                                .padding(.horizontal, 20)
                             }
-                        } label: {
-                            HStack {
-                                Image(systemName: "person.fill")
-                                    .foregroundColor(.purple)
-                                    .frame(width: 24)
-                                Text("Sürücü")
-                            }
+                            .padding(.bottom, 16)
                         }
                     }
                     
-                    Section(header: sectionHeader(title: "Durum", icon: "flag.fill")) {
-                        Picker("Transfer Durumu", selection: $status) {
-                            ForEach(Trip.TripStatus.allCases, id: \.self) { status in
-                                Text(statusText(for: status)).tag(status)
+                    // Hata Mesajı
+                    if !errorMessage.isEmpty {
+                        VStack {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
+                                Text(errorMessage)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
                             }
+                            .padding()
+                            .background(ShuttleTrackTheme.Colors.error.opacity(0.1))
+                            .cornerRadius(12)
                         }
-                        .pickerStyle(SegmentedPickerStyle())
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
                     }
-                }
-                
-                // Hata Mesajı
-                if !errorMessage.isEmpty {
-                    Section {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
+                    
+                    // Bottom padding
+                    Spacer(minLength: 100)
                 }
             }
+            .background(ShuttleTrackTheme.Colors.background)
             .navigationTitle(isEditing ? "Transfer Düzenle" : "Yeni Transfer")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
@@ -346,6 +332,7 @@ struct AddEditTripView: View {
                         Image(systemName: "xmark")
                         Text("İptal")
                     }
+                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 },
                 trailing: Button(action: {
                     Task {
@@ -357,6 +344,7 @@ struct AddEditTripView: View {
                         Text("Kaydet")
                     }
                     .fontWeight(.semibold)
+                    .foregroundColor(isFormValid ? ShuttleTrackTheme.Colors.primaryBlue : ShuttleTrackTheme.Colors.tertiaryText)
                 }
                 .disabled(!isFormValid || isLoading)
             )

@@ -1,0 +1,267 @@
+# ShuttleTrack - iOS SwiftUI Araç Takip Sistemi Cursor Rules
+
+## Proje Genel Bilgileri
+- **Proje Adı**: ShuttleTrack - Havalimanı Transfer Yönetim Sistemi
+- **Platform**: iOS (SwiftUI)
+- **Backend**: Firebase (Firestore, Authentication)
+- **Mimari**: MVVM (Model-View-ViewModel)
+- **Dil**: Swift 5.9+
+- **Minimum iOS**: 15.0+
+
+## Proje Yapısı ve Organizasyon
+
+### Dosya Organizasyonu
+```
+VehicleTrackingAppv2/
+├── Models/                    # Veri modelleri
+│   ├── Company.swift          # Şirket modeli
+│   ├── Vehicle.swift          # Araç modeli
+│   ├── Driver.swift           # Şoför modeli
+│   ├── Trip.swift             # Transfer işi modeli
+│   ├── UserProfile.swift      # Kullanıcı profili
+│   └── UserType.swift         # Kullanıcı tipi enum
+├── Views/                     # SwiftUI görünümleri
+│   ├── Components/            # Yeniden kullanılabilir bileşenler
+│   │   ├── LogoView.swift     # Logo bileşeni
+│   │   └── Theme.swift        # Tema ve stil tanımları
+│   ├── LoginView.swift        # Giriş ekranı
+│   ├── SignUpView.swift       # Kayıt ekranı
+│   ├── DashboardView.swift   # Ana dashboard
+│   ├── VehicleManagementView.swift  # Araç yönetimi
+│   ├── DriverManagementView.swift  # Şoför yönetimi
+│   ├── TripAssignmentView.swift     # İş atama
+│   ├── TrackingView.swift     # Araç takibi
+│   └── ProfileView.swift     # Profil yönetimi
+├── ViewModels/               # ViewModel sınıfları
+│   ├── AppViewModel.swift     # Ana uygulama view model
+│   ├── VehicleViewModel.swift # Araç view model
+│   ├── DriverViewModel.swift  # Şoför view model
+│   ├── TripViewModel.swift    # İş view model
+│   └── ProfileViewModel.swift # Profil view model
+├── Services/                 # Servis sınıfları
+│   ├── StatisticsService.swift # İstatistik servisi
+│   └── ExportService.swift    # Dışa aktarma servisi
+├── Assets.xcassets/          # Görsel varlıklar
+└── GoogleService-Info.plist  # Firebase yapılandırması
+```
+
+## Kodlama Standartları ve Kurallar
+
+### 1. SwiftUI ve MVVM Mimarisi
+- **MVVM Pattern**: Tüm business logic ViewModel'lerde, UI logic View'larda
+- **@Published**: ObservableObject'lerde state değişiklikleri için
+- **@StateObject**: View'ların sahip olduğu ViewModel'ler için
+- **@ObservedObject**: Parent'tan gelen ViewModel'ler için
+- **@EnvironmentObject**: Global state için (AppViewModel)
+
+### 2. Firebase Entegrasyonu
+- **Firestore**: Veri saklama ve real-time updates
+- **Authentication**: Kullanıcı girişi ve yetkilendirme
+- **DocumentID**: Firestore document ID'leri için
+- **Codable**: Model sınıfları için JSON serialization
+- **ListenerRegistration**: Real-time listener'lar için cleanup
+
+### 3. Model Sınıfları Kuralları
+```swift
+// Model sınıfları için standart yapı
+struct ModelName: Identifiable, Codable {
+    @DocumentID var id: String?  // Firestore için
+    var property1: String
+    var property2: Int
+    var createdAt: Date
+    var updatedAt: Date
+    
+    // Computed properties
+    var displayName: String { ... }
+    var statusText: String { ... }
+    
+    // Custom initializer
+    init(...) {
+        self.property1 = property1
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+```
+
+### 4. ViewModel Kuralları
+```swift
+// ViewModel sınıfları için standart yapı
+@MainActor
+class ViewModelName: ObservableObject {
+    @Published var data: [Model] = []
+    @Published var isLoading = false
+    @Published var errorMessage = ""
+    
+    private let db = Firestore.firestore()
+    private var cancellables = Set<AnyCancellable>()
+    
+    func fetchData(for companyId: String) { ... }
+    func addItem(_ item: Model) { ... }
+    func updateItem(_ item: Model) { ... }
+    func deleteItem(_ item: Model) { ... }
+    
+    deinit {
+        // Cleanup listeners
+    }
+}
+```
+
+### 5. View Kuralları
+```swift
+// View sınıfları için standart yapı
+struct ViewName: View {
+    @EnvironmentObject var appViewModel: AppViewModel
+    @StateObject private var viewModel = ViewModelName()
+    @State private var localState = ""
+    
+    var body: some View {
+        NavigationView {
+            // UI implementation
+        }
+        .onAppear {
+            loadData()
+        }
+    }
+    
+    private func loadData() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        viewModel.fetchData(for: companyId)
+    }
+}
+```
+
+### 6. Tema ve Stil Kuralları
+- **ShuttleTrackTheme**: Merkezi tema yönetimi
+- **Custom Modifiers**: `.shuttleTrackTitle()`, `.shuttleTrackCaption()` vb.
+- **Button Styles**: `ShuttleTrackButtonStyle` kullanımı
+- **Card Styles**: `ShuttleTrackCard` wrapper'ı
+- **Color System**: Primary, secondary, status colors
+
+### 7. Firebase Firestore Kuralları
+- **Collection Names**: `companies`, `vehicles`, `drivers`, `trips`, `userProfiles`
+- **Document Structure**: Her document'te `companyId` field'ı
+- **Real-time Listeners**: Cleanup için `deinit`'te listener'ları kaldır
+- **Error Handling**: Firebase hatalarını kullanıcı dostu mesajlara çevir
+
+### 8. Error Handling ve Logging
+```swift
+// Error handling pattern
+if let error = error {
+    print("❌ Error description: \(error.localizedDescription)")
+    errorMessage = "Kullanıcı dostu hata mesajı"
+    return
+}
+
+// Success logging
+print("✅ Operation completed successfully")
+```
+
+### 9. Async/Await ve Combine
+- **@MainActor**: UI güncellemeleri için
+- **DispatchQueue.main.async**: Firebase callback'leri için
+- **Combine**: Reactive programming için
+- **Task**: Modern async/await pattern'i
+
+### 10. Memory Management
+- **Weak References**: Closure'larda `[weak self]` kullanımı
+- **Listener Cleanup**: `deinit`'te listener'ları temizle
+- **Cancellables**: Combine subscription'ları için
+
+## Özel Kurallar ve Notlar
+
+### 1. Türkçe Lokalizasyon
+- UI metinleri Türkçe
+- Error mesajları Türkçe
+- Console log'ları Türkçe (debug için)
+
+### 2. Company-Based Multi-tenancy
+- Her veri `companyId` ile filtrelenir
+- Kullanıcılar sadece kendi şirket verilerine erişebilir
+- `appViewModel.currentCompany?.id` kontrolü her işlemde
+
+### 3. Real-time Updates
+- Firestore listener'ları kullan
+- Dashboard istatistikleri real-time
+- Araç konumları real-time
+
+### 4. Form Validation
+- Email format kontrolü
+- Required field kontrolü
+- Date validation (sigorta, muayene tarihleri)
+
+### 5. Performance Optimizations
+- LazyVGrid kullanımı büyük listeler için
+- Image caching
+- Pagination büyük veri setleri için
+
+## Yeni Özellik Ekleme Kuralları
+
+### 1. Yeni Model Ekleme
+1. `Models/` klasörüne ekle
+2. `Identifiable, Codable` implement et
+3. `@DocumentID var id: String?` ekle
+4. `companyId` field'ı ekle
+5. Computed properties ekle
+
+### 2. Yeni View Ekleme
+1. `Views/` klasörüne ekle
+2. `@EnvironmentObject var appViewModel: AppViewModel` ekle
+3. `@StateObject private var viewModel` ekle
+4. `onAppear` ile data loading
+5. Error handling ekle
+
+### 3. Yeni ViewModel Ekleme
+1. `ViewModels/` klasörüne ekle
+2. `@MainActor class` olarak tanımla
+3. `ObservableObject` implement et
+4. Firebase operations ekle
+5. Error handling ve loading states
+
+### 4. Yeni Service Ekleme
+1. `Services/` klasörüne ekle
+2. `@MainActor class` olarak tanımla
+3. `ObservableObject` implement et
+4. Firebase operations ekle
+5. Real-time listener'lar için cleanup
+
+## Debugging ve Development
+
+### 1. Console Logging
+- `print("✅ Success message")` - Başarılı işlemler
+- `print("❌ Error message")` - Hata durumları
+- `print("⚠️ Warning message")` - Uyarılar
+- `print("📊 Data message")` - Veri işlemleri
+
+### 2. Firebase Debugging
+- Firestore rules test et
+- Authentication flow kontrol et
+- Real-time listener'ları kontrol et
+- Network requests izle
+
+### 3. UI Debugging
+- SwiftUI preview'ları kullan
+- Device simulator'da test et
+- Dark/Light mode test et
+- Accessibility test et
+
+## Güvenlik ve Best Practices
+
+### 1. Firebase Security
+- Firestore security rules
+- Authentication state kontrolü
+- Company-based data isolation
+
+### 2. Data Validation
+- Input validation
+- Date validation
+- Email format validation
+- Phone number validation
+
+### 3. Error Recovery
+- Network error handling
+- Firebase error handling
+- User-friendly error messages
+- Retry mechanisms
+
+Bu kurallar ShuttleTrack projesinin mevcut yapısına uygun olarak hazırlanmıştır ve geliştirme sürecinde tutarlılık sağlamak için kullanılmalıdır.

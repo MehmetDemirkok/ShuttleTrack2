@@ -1,9 +1,12 @@
 import SwiftUI
 
 struct ShuttleTrackTheme {
+    // MARK: - Color Scheme Support
+    @Environment(\.colorScheme) static var colorScheme
+    
     // MARK: - Colors
     struct Colors {
-        // Primary Colors
+        // Primary Colors (consistent across themes)
         static let primaryBlue = Color(red: 0.2, green: 0.6, blue: 1.0)
         static let primaryPurple = Color(red: 0.6, green: 0.4, blue: 1.0)
         static let primaryGreen = Color(red: 0.2, green: 0.8, blue: 0.4)
@@ -15,16 +18,62 @@ struct ShuttleTrackTheme {
         static let secondaryGreen = Color(red: 0.4, green: 0.9, blue: 0.6)
         static let secondaryOrange = Color(red: 1.0, green: 0.8, blue: 0.4)
         
-        // Status Colors
+        // Status Colors (consistent across themes)
         static let success = Color(red: 0.2, green: 0.8, blue: 0.4)
         static let warning = Color(red: 1.0, green: 0.6, blue: 0.2)
         static let error = Color(red: 1.0, green: 0.3, blue: 0.3)
         static let info = Color(red: 0.2, green: 0.6, blue: 1.0)
         
-        // Background Colors
-        static let background = Color(red: 0.98, green: 0.98, blue: 1.0)
-        static let cardBackground = Color.white
-        static let surfaceBackground = Color(red: 0.96, green: 0.97, blue: 1.0)
+        // Dynamic Background Colors
+        static var background: Color {
+            Color(.systemBackground)
+        }
+        
+        static var cardBackground: Color {
+            Color(.secondarySystemBackground)
+        }
+        
+        static var surfaceBackground: Color {
+            Color(.tertiarySystemBackground)
+        }
+        
+        static var primaryText: Color {
+            Color(.label)
+        }
+        
+        static var secondaryText: Color {
+            Color(.secondaryLabel)
+        }
+        
+        static var tertiaryText: Color {
+            Color(.tertiaryLabel)
+        }
+        
+        // Form specific colors
+        static var formBackground: Color {
+            Color(.secondarySystemBackground)
+        }
+        
+        static var inputBackground: Color {
+            Color(.tertiarySystemBackground)
+        }
+        
+        static var borderColor: Color {
+            Color(.separator)
+        }
+        
+        // Icon colors (semantic colors for different contexts)
+        static let pickupIcon = Color(red: 0.2, green: 0.8, blue: 0.4) // Green for pickup
+        static let dropoffIcon = Color(red: 1.0, green: 0.6, blue: 0.2) // Orange for dropoff
+        static let timeIcon = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue for time
+        static let priceIcon = Color(red: 0.0, green: 0.7, blue: 0.7) // Teal for price
+        static let personIcon = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue for person
+        static let vehicleIcon = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue for vehicle
+        static let documentIcon = Color(red: 0.6, green: 0.4, blue: 1.0) // Purple for documents
+        static let calendarIcon = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue for calendar
+        static let phoneIcon = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue for phone
+        static let buildingIcon = Color(red: 1.0, green: 0.6, blue: 0.2) // Orange for building
+        static let envelopeIcon = Color(red: 0.2, green: 0.8, blue: 0.4) // Green for email
     }
     
     // MARK: - Gradients
