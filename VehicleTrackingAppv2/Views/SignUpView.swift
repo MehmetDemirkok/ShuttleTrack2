@@ -27,51 +27,15 @@ struct SignUpView: View {
                     .padding(.top, 20)
                 
                 VStack(spacing: 15) {
-                    // Kullanıcı Tipi Seçimi
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Kullanıcı Tipi")
+                    // Kullanıcı Tipi sabit: Şirket Yetkilisi
+                    HStack {
+                        Text("Kullanıcı Tipi:")
                             .font(.headline)
                             .foregroundColor(.blue)
-                        
-                        ForEach(UserType.allCases, id: \.self) { userType in
-                            Button(action: {
-                                selectedUserType = userType
-                            }) {
-                                HStack {
-                                    Image(systemName: userType.icon)
-                                        .foregroundColor(selectedUserType == userType ? .white : .blue)
-                                        .frame(width: 20)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(userType.displayName)
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                            .foregroundColor(selectedUserType == userType ? .white : .primary)
-                                        
-                                        Text(userType.description)
-                                            .font(.caption)
-                                            .foregroundColor(selectedUserType == userType ? .white.opacity(0.8) : .secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    if selectedUserType == userType {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.white)
-                                    }
-                                }
-                                .padding()
-                                .background(selectedUserType == userType ? Color.blue : Color.gray.opacity(0.1))
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(selectedUserType == userType ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
+                        Text("Şirket Yetkilisi")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                     }
-                    
                     Divider()
                     
                     // Kişisel Bilgiler
@@ -89,7 +53,7 @@ struct SignUpView: View {
                     }
                     
                     // Şirket Bilgileri (sadece şirket yetkilisi için)
-                    if selectedUserType == .companyAdmin {
+                    if true {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Şirket Bilgileri")
                                 .font(.headline)
@@ -171,16 +135,10 @@ struct SignUpView: View {
         password == confirmPassword &&
         password.count >= 6
         
-        if selectedUserType == .companyAdmin {
-            return basicValidation &&
-            !companyName.isEmpty &&
-            !address.isEmpty &&
-            !licenseNumber.isEmpty
-        } else if selectedUserType == .driver {
-            return basicValidation
-        }
-        
-        return basicValidation
+        return basicValidation &&
+        !companyName.isEmpty &&
+        !address.isEmpty &&
+        !licenseNumber.isEmpty
     }
     
     private func signUp() {
@@ -204,35 +162,30 @@ struct SignUpView: View {
         let db = Firestore.firestore()
         
         // Şirket verilerini kaydet (sadece şirket yetkilisi için)
-        var company: Company? = nil
-        if selectedUserType == .companyAdmin {
-            company = Company(
-                name: companyName,
-                email: email,
-                phone: phone,
-                address: address,
-                licenseNumber: licenseNumber
-            )
-        }
+        let company = Company(
+            name: companyName,
+            email: email,
+            phone: phone,
+            address: address,
+            licenseNumber: licenseNumber
+        )
         
         // Kullanıcı profilini oluştur
         let userProfile = UserProfile(
             userId: user.uid,
-            userType: selectedUserType,
+            userType: .companyAdmin,
             email: email,
             fullName: fullName,
             phone: phone,
-            companyId: selectedUserType == .companyAdmin ? user.uid : nil,
+            companyId: user.uid,
             driverLicenseNumber: nil
         )
         
         // Firebase'e kaydet
         Task {
             do {
-                // Şirket verilerini kaydet (sadece şirket yetkilisi için)
-                if let company = company {
-                    try db.collection("companies").document(user.uid).setData(from: company)
-                }
+                // Şirket verilerini kaydet
+                try db.collection("companies").document(user.uid).setData(from: company)
                 
                 // Kullanıcı profilini kaydet
                 var profileData = userProfile

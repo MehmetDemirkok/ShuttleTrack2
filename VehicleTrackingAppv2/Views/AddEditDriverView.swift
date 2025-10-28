@@ -55,7 +55,7 @@ struct AddEditDriverView: View {
                         
                         FormInputField(
                             title: "Telefon",
-                            placeholder: "Telefon",
+                            placeholder: "+90 5xx xxx xx xx",
                             icon: "phone.fill",
                             iconColor: ShuttleTrackTheme.Colors.phoneIcon,
                             text: $phoneNumber,
@@ -164,11 +164,18 @@ struct AddEditDriverView: View {
             return
         }
         
+        // Telefonu E.164'e normalize et
+        guard let normalizedPhone = normalizePhoneToE164(phoneNumber) else {
+            errorMessage = "Telefon formatı geçersiz. Örn: +905xxxxxxxxx"
+            isLoading = false
+            return
+        }
+
         let newDriver = Driver(
             id: driver?.id ?? UUID().uuidString,
             firstName: firstName,
             lastName: lastName,
-            phoneNumber: phoneNumber,
+            phoneNumber: normalizedPhone,
             isActive: isActive,
             companyId: companyId
         )
@@ -176,6 +183,13 @@ struct AddEditDriverView: View {
         if isEditing {
             viewModel.updateDriver(newDriver)
         } else {
+            // Aynı telefonda aktif kayıt var mı kontrol et
+            let exists = viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
+            if exists {
+                errorMessage = "Bu telefon numarası zaten kayıtlı"
+                isLoading = false
+                return
+            }
             viewModel.addDriver(newDriver)
         }
         
@@ -189,6 +203,25 @@ struct AddEditDriverView: View {
         } else {
             errorMessage = viewModel.errorMessage
         }
+    }
+
+    private func normalizePhoneToE164(_ input: String) -> String? {
+        // Basit TR örneği: baştaki 0'ı at, +90 ekle; +90 ile başlıyorsa kabul
+        let trimmed = input.replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        if trimmed.hasPrefix("+90") {
+            let digits = trimmed.dropFirst(3)
+            return digits.count == 10 ? trimmed : nil
+        }
+        if trimmed.hasPrefix("0") {
+            let rest = trimmed.dropFirst(1)
+            return rest.count == 10 ? "+90" + rest : nil
+        }
+        // 10 haneli çıplak numara ise TR kabul et
+        if trimmed.count == 10, let _ = Int(trimmed) {
+            return "+90" + trimmed
+        }
+        return nil
     }
 }
 

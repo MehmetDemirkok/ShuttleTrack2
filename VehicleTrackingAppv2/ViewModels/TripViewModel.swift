@@ -52,6 +52,34 @@ class TripViewModel: ObservableObject {
             }
     }
     
+    // Sürücüye özel: sadece o sürücünün işleri (assigned/in_progress)
+    func fetchTripsForDriver(companyId: String, driverId: String) {
+        isLoading = true
+        errorMessage = ""
+        
+        db.collection("trips")
+            .whereField("companyId", isEqualTo: companyId)
+            .whereField("driverId", isEqualTo: driverId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    if let error = error {
+                        self?.errorMessage = error.localizedDescription
+                        print("❌ Trip fetch (driver) error: \(error.localizedDescription)")
+                        return
+                    }
+                    guard let documents = snapshot?.documents else {
+                        self?.trips = []
+                        return
+                    }
+                    let trips = documents.compactMap { try? $0.data(as: Trip.self) }
+                    // Sadece ilgili durumlar
+                    let filtered = trips.filter { $0.status == .assigned || $0.status == .inProgress }
+                    self?.trips = filtered.sorted { $0.scheduledPickupTime < $1.scheduledPickupTime }
+                }
+            }
+    }
+    
     func fetchVehicles(for companyId: String) {
         db.collection("vehicles")
             .whereField("companyId", isEqualTo: companyId)
@@ -219,6 +247,15 @@ class TripViewModel: ObservableObject {
             trip.driverId.isEmpty ? nil : trip.driverId
         }
         return drivers.filter { !assignedDriverIds.contains($0.id) }
+    }
+    
+    // Sürücüye ait işleri getir
+    func getTrips(forDriverId driverId: String, statuses: [Trip.TripStatus]? = nil) -> [Trip] {
+        let filtered = trips.filter { $0.driverId == driverId }
+        guard let statuses = statuses, !statuses.isEmpty else {
+            return filtered
+        }
+        return filtered.filter { statuses.contains($0.status) }
     }
     
     // Otomatik transfer numarası oluştur

@@ -161,23 +161,27 @@ struct DashboardView: View {
                 }
                 .tag(1)
             
-            // Şoför Yönetimi
-            DriverManagementView()
-                .tabItem {
-                    Image(systemName: "person.fill")
-                    Text("Sürücüler")
-                }
-                .tag(2)
+            // Şoför Yönetimi (sadece admin)
+            if appViewModel.currentUserProfile?.userType == .companyAdmin {
+                DriverManagementView()
+                    .tabItem {
+                        Image(systemName: "person.fill")
+                        Text("Sürücüler")
+                    }
+                    .tag(2)
+            }
             
-            // İş Atama
-            TripAssignmentView()
-                .tabItem {
-                    Image(systemName: "list.bullet")
-                    Text("İşler")
-                }
-                .tag(3)
+            // İş Atama (sadece admin)
+            if appViewModel.currentUserProfile?.userType == .companyAdmin {
+                TripAssignmentView()
+                    .tabItem {
+                        Image(systemName: "list.bullet")
+                        Text("İşler")
+                    }
+                    .tag(3)
+            }
             
-            // Takip
+            // Takip (herkes)
             TrackingView()
                 .tabItem {
                     Image(systemName: "location.fill")
@@ -191,9 +195,9 @@ struct DashboardView: View {
         .onAppear {
             loadData()
         }
-        .onChange(of: appViewModel.currentCompany?.id) { newCompanyId in
+        .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
             // Şirket bilgisi sonradan geldiğinde istatistikleri ve listeleri yükle
-            if let companyId = newCompanyId {
+            if let companyId = newValue {
                 print("🔁 Company ID değişti: \(companyId) — dashboard verileri yeniden yükleniyor")
                 statisticsService.fetchStatistics(for: companyId)
                 tripViewModel.fetchTrips(for: companyId)

@@ -35,11 +35,8 @@ class AppViewModel: ObservableObject {
     }
     
     private func loadUserProfileAndCompany(for user: User) {
-        // User profile yükle
+        // Önce profil, ardından profile göre şirket yükle
         loadUserProfile(for: user)
-        
-        // Company data yükle
-        loadCompanyData(for: user)
     }
     
     private func loadUserProfile(for user: User) {
@@ -49,23 +46,35 @@ class AppViewModel: ObservableObject {
             DispatchQueue.main.async {
                 if let document = document, document.exists {
                     do {
-                        self?.currentUserProfile = try document.data(as: UserProfile.self)
-                        print("✅ User profile yüklendi: \(user.uid)")
+                        let profile = try document.data(as: UserProfile.self)
+                        // Profil aktif mi kontrol et
+                        if profile.isActive {
+                            self?.currentUserProfile = profile
+                            print("✅ User profile yüklendi: \(user.uid)")
+                            // Profilden şirket ID'sini belirle
+                            let companyId = profile.companyId ?? user.uid
+                            self?.loadCompanyData(companyId: companyId)
+                        } else {
+                            print("⚠️ User profile deaktif: \(user.uid)")
+                            self?.signOut()
+                        }
                     } catch {
                         print("❌ User profile decode hatası: \(error)")
+                        self?.signOut()
                     }
                 } else {
                     print("⚠️ User profile not found for user: \(user.uid)")
+                    self?.signOut()
                 }
             }
         }
     }
     
-    private func loadCompanyData(for user: User) {
+    private func loadCompanyData(companyId: String) {
         // Cache kontrolü - 10 dakika içinde yüklenmişse cache'den al
         if let lastLoad = lastCompanyLoadTime,
            Date().timeIntervalSince(lastLoad) < 600, // 10 dakika
-           let cachedCompany = companyCache[user.uid] {
+           let cachedCompany = companyCache[companyId] {
             print("📦 Company data loaded from cache")
             currentCompany = cachedCompany
             return
@@ -81,7 +90,7 @@ class AppViewModel: ObservableObject {
         lastCompanyLoadTime = Date()
         let db = Firestore.firestore()
         
-        db.collection("companies").document(user.uid).getDocument { [weak self] document, error in
+        db.collection("companies").document(companyId).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 if let error = error {
                     print("❌ Error loading company data: \(error)")
@@ -92,13 +101,13 @@ class AppViewModel: ObservableObject {
                     do {
                         let company = try document.data(as: Company.self)
                         self?.currentCompany = company
-                        self?.companyCache[user.uid] = company
+                        self?.companyCache[companyId] = company
                         print("✅ Company data loaded successfully")
                     } catch {
                         print("❌ Error decoding company: \(error)")
                     }
                 } else {
-                    print("⚠️ Company document not found for user: \(user.uid)")
+                    print("⚠️ Company document not found for id: \(companyId)")
                 }
             }
         }

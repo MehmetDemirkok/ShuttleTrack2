@@ -19,8 +19,25 @@ struct ShuttleTrackApp: App {
     var body: some Scene {
         WindowGroup {
             if appViewModel.isAuthenticated {
-                DashboardView()
-                    .environmentObject(appViewModel)
+                Group {
+                    if let profile = appViewModel.currentUserProfile {
+                        switch profile.userType {
+                        case .companyAdmin:
+                            DashboardView()
+                                .environmentObject(appViewModel)
+                        case .driver:
+                            DriverDashboardView()
+                                .environmentObject(appViewModel)
+                        }
+                    } else {
+                        // Profil yüklenirken basit loading ekranı
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("Profil yükleniyor...")
+                        }
+                        .environmentObject(appViewModel)
+                    }
+                }
             } else {
                 LoginView()
                     .environmentObject(appViewModel)

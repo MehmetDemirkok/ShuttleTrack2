@@ -8,6 +8,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var showingSignUp = false
+    @State private var showingDriverOTP = false
     
     var body: some View {
         NavigationView {
@@ -85,12 +86,18 @@ struct LoginView: View {
                 .padding(.horizontal, ShuttleTrackTheme.Spacing.lg)
                 
                 // Sign Up Link
-                HStack {
-                    Text("Hesabınız yok mu?")
-                        .shuttleTrackCaption()
-                    
-                    Button("Kayıt Ol") {
-                        showingSignUp = true
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Hesabınız yok mu?")
+                            .shuttleTrackCaption()
+                        Button("Kayıt Ol") {
+                            showingSignUp = true
+                        }
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                        .font(.system(size: 14, weight: .semibold))
+                    }
+                    Button("Sürücü OTP ile Giriş Yap") {
+                        showingDriverOTP = true
                     }
                     .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
                     .font(.system(size: 14, weight: .semibold))
@@ -103,6 +110,10 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showingSignUp) {
             SignUpView()
+        }
+        .sheet(isPresented: $showingDriverOTP) {
+            DriverOTPLoginView()
+                .environmentObject(appViewModel)
         }
     }
     

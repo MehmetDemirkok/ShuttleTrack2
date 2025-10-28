@@ -104,8 +104,8 @@ struct TripAssignmentView: View {
             .onAppear {
                 loadTrips()
             }
-            .onChange(of: appViewModel.currentCompany?.id) { newCompanyId in
-                if let companyId = newCompanyId {
+            .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
+                if let companyId = newValue {
                     viewModel.fetchTrips(for: companyId)
                     viewModel.fetchVehicles(for: companyId)
                     viewModel.fetchDrivers(for: companyId)
