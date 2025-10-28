@@ -17,19 +17,7 @@ struct TripAssignmentView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // Filtre
-                HStack {
-                    Picker("Durum", selection: $selectedStatus) {
-                        Text("Tümü").tag(nil as Trip.TripStatus?)
-                        ForEach(Trip.TripStatus.allCases, id: \.self) { status in
-                            Text(displayName(for: status)).tag(status as Trip.TripStatus?)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                }
-                .padding(.horizontal)
-                
-                // Horizontal Scrollable Filter Buttons
+                // Filtre (Yalnızca yatay butonlar)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         // Tümü butonu
@@ -42,7 +30,7 @@ struct TripAssignmentView: View {
                         // Diğer status butonları
                         ForEach(Trip.TripStatus.allCases, id: \.self) { status in
                             FilterButton(
-                                title: status.statusShortText,
+                                title: displayName(for: status),
                                 isSelected: selectedStatus == status,
                                 action: { selectedStatus = status }
                             )
@@ -183,20 +171,7 @@ struct TripAssignmentView: View {
         }
     }
 
-    private func statusColor(_ status: Trip.TripStatus) -> Color {
-        switch status {
-        case .scheduled:
-            return .orange
-        case .assigned:
-            return .blue
-        case .inProgress:
-            return .green
-        case .completed:
-            return .gray
-        case .cancelled:
-            return .red
-        }
-    }
+    
 }
 
 // Araçlar sayfasına benzer kompakt kart görünümü
@@ -210,11 +185,11 @@ struct TripRowCard: View {
                 HStack(alignment: .top) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.blue.opacity(0.15))
+                            .fill(ShuttleTrackTheme.Colors.primaryBlue.opacity(0.12))
                             .frame(width: 40, height: 40)
                         Image(systemName: "airplane.departure")
                             .font(.title3)
-                            .foregroundColor(.blue)
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -230,22 +205,38 @@ struct TripRowCard: View {
                     
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(statusColor(trip.status))
+                            .fill(trip.statusColor)
                             .frame(width: 6, height: 6)
                         Text(trip.statusText)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(statusColor(trip.status))
+                            .foregroundColor(trip.statusColor)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(statusColor(trip.status).opacity(0.1))
+                    .background(trip.statusColor.opacity(0.1))
                     .cornerRadius(12)
+                }
+                
+                // Bilgi rozetleri
+                HStack(spacing: 8) {
+                    if trip.isUpcoming {
+                        CapsuleTag(title: "Yakında", icon: "clock", color: ShuttleTrackTheme.Colors.info)
+                    }
+                    if trip.isOverdue {
+                        CapsuleTag(title: "Gecikmiş", icon: "exclamationmark.triangle.fill", color: .red)
+                    }
+                    if trip.notes != nil {
+                        CapsuleTag(title: "Not var", icon: "note.text", color: ShuttleTrackTheme.Colors.secondaryBlue)
+                    }
                 }
                 
                 HStack(spacing: 16) {
                     CompactDetailItem(title: "Alış", value: DateFormatter.localizedString(from: trip.scheduledPickupTime, dateStyle: .none, timeStyle: .short), icon: "clock")
                     CompactDetailItem(title: "Varış", value: DateFormatter.localizedString(from: trip.scheduledDropoffTime, dateStyle: .none, timeStyle: .short), icon: "clock.arrow.circlepath")
                     CompactDetailItem(title: "Yolcu", value: "\(trip.passengerCount)", icon: "person.2")
+                    if let fare = trip.fare {
+                        CompactDetailItem(title: "Ücret", value: formatCurrency(fare), icon: "turkishlirasign")
+                    }
                 }
                 
                 if !trip.vehicleId.isEmpty || !trip.driverId.isEmpty {
@@ -272,6 +263,13 @@ struct TripRowCard: View {
                 .stroke(Color(.systemGray6), lineWidth: 1)
         )
         .onTapGesture { onTap() }
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "tr_TR")
+        return formatter.string(from: NSNumber(value: amount)) ?? String(format: "₺%.0f", amount)
     }
 }
 
@@ -432,15 +430,15 @@ struct TripDetailView: View {
                         
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(statusColor(trip.status))
+                                .fill(trip.statusColor)
                                 .frame(width: 12, height: 12)
                             Text(trip.statusText)
                                 .font(.headline)
-                                .foregroundColor(statusColor(trip.status))
+                                .foregroundColor(trip.statusColor)
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(statusColor(trip.status).opacity(0.1))
+                        .background(trip.statusColor.opacity(0.1))
                         .cornerRadius(20)
                     }
                     .padding(.top, 20)
@@ -455,26 +453,63 @@ struct TripDetailView: View {
                             DetailRow(title: "Alış Saati", value: DateFormatter.localizedString(from: trip.scheduledPickupTime, dateStyle: .medium, timeStyle: .short), icon: "clock")
                             DetailRow(title: "Varış Saati", value: DateFormatter.localizedString(from: trip.scheduledDropoffTime, dateStyle: .medium, timeStyle: .short), icon: "clock.arrow.circlepath")
                             DetailRow(title: "Yolcu Sayısı", value: "\(trip.passengerCount) kişi", icon: "person.2.fill")
+                            if let fare = trip.fare {
+                                DetailRow(title: "Ücret", value: formatCurrency(fare), icon: "turkishlirasign")
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
                     
-                    if !trip.vehicleId.isEmpty || !trip.driverId.isEmpty {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("Atamalar")
+                    // Atamalar
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Atamalar")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        
+                        VStack(spacing: 12) {
+                            if let vehicle = findVehicle(by: trip.vehicleId) {
+                                DetailRow(title: "Araç", value: vehicle.displayName, icon: "car.fill")
+                            } else {
+                                DetailRow(title: "Araç", value: trip.vehicleId.isEmpty ? "Atanmamış" : "Bulunamadı", icon: "car")
+                            }
+                            if let driver = findDriver(by: trip.driverId) {
+                                DetailRow(title: "Şoför", value: driver.fullName, icon: "person.fill")
+                                DetailRow(title: "Telefon", value: driver.phoneNumber, icon: "phone.fill")
+                            } else {
+                                DetailRow(title: "Şoför", value: trip.driverId.isEmpty ? "Atanmamış" : "Bulunamadı", icon: "person")
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    // Ek Bilgiler
+                    if let notes = trip.notes, !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Notlar")
                                 .font(.title3)
                                 .fontWeight(.bold)
-                            HStack(spacing: 12) {
-                                if !trip.vehicleId.isEmpty {
-                                    WarningDetailBanner(icon: "car.fill", message: "Araç atanmış", color: .green)
-                                }
-                                if !trip.driverId.isEmpty {
-                                    WarningDetailBanner(icon: "person.fill", message: "Şoför atanmış", color: .green)
-                                }
-                            }
+                            Text(notes)
+                                .font(.body)
+                                .foregroundColor(.primary)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 16)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
                         }
                         .padding(.horizontal, 20)
                     }
+                    
+                    // Zaman Bilgileri
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Zaman Bilgileri")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        VStack(spacing: 12) {
+                            DetailRow(title: "Oluşturulma", value: DateFormatter.localizedString(from: trip.createdAt, dateStyle: .medium, timeStyle: .short), icon: "calendar.badge.plus")
+                            DetailRow(title: "Güncellenme", value: DateFormatter.localizedString(from: trip.updatedAt, dateStyle: .medium, timeStyle: .short), icon: "calendar.badge.clock")
+                        }
+                    }
+                    .padding(.horizontal, 20)
                     
                     // Actions
                     VStack(spacing: 16) {
@@ -561,6 +596,24 @@ struct TripDetailView: View {
             }
         }
     }
+    
+    // MARK: - Helpers
+    private func findVehicle(by id: String) -> Vehicle? {
+        guard !id.isEmpty else { return nil }
+        return viewModel.vehicles.first { $0.id == id }
+    }
+    
+    private func findDriver(by id: String) -> Driver? {
+        guard !id.isEmpty else { return nil }
+        return viewModel.drivers.first { $0.id == id }
+    }
+    
+    private func formatCurrency(_ amount: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "tr_TR")
+        return formatter.string(from: NSNumber(value: amount)) ?? String(format: "₺%.0f", amount)
+    }
 }
 struct TripAssignmentView_Previews: PreviewProvider {
     static var previews: some View {
@@ -587,6 +640,27 @@ struct FilterButton: View {
                 )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Capsule Tag
+struct CapsuleTag: View {
+    let title: String
+    let icon: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(color.opacity(0.12))
+        .cornerRadius(999)
     }
 }
 

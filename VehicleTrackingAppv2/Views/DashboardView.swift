@@ -191,6 +191,16 @@ struct DashboardView: View {
         .onAppear {
             loadData()
         }
+        .onChange(of: appViewModel.currentCompany?.id) { newCompanyId in
+            // Şirket bilgisi sonradan geldiğinde istatistikleri ve listeleri yükle
+            if let companyId = newCompanyId {
+                print("🔁 Company ID değişti: \(companyId) — dashboard verileri yeniden yükleniyor")
+                statisticsService.fetchStatistics(for: companyId)
+                tripViewModel.fetchTrips(for: companyId)
+                vehicleViewModel.fetchVehicles(for: companyId)
+                driverViewModel.fetchDrivers(for: companyId)
+            }
+        }
         .onDisappear {
             statisticsService.stopRealTimeUpdates()
         }
