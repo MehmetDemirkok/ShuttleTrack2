@@ -575,26 +575,26 @@ struct TermsOfServiceView: View {
                             .font(.body)
                             .foregroundColor(.secondary)
                             .lineSpacing(4)
-                    )
+                    }
                     
                     Spacer(minLength: 20)
-                    }
-                    .padding(.horizontal, 20)
                 }
-                .navigationTitle("Kullanım Şartları")
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarItems(
-                    trailing: Button("Kapat") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                )
+                .padding(.horizontal, 20)
             }
+            .navigationTitle("Kullanım Şartları")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Kapat") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+            )
         }
     }
-    
-    struct SettingsView_Previews: PreviewProvider {
-        static var previews: some View {
-            SettingsView()
-        }
+}
+
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        SettingsView()
     }
+}
 
