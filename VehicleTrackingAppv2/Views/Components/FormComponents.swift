@@ -296,13 +296,15 @@ struct FormYearPickerField: View {
             
             Menu {
                 ForEach(Array(stride(from: maxYear, through: minYear, by: -1)), id: \.self) { year in
-                    Button("\(year)") {
+                    Button(action: {
                         selectedYear = year
+                    }) {
+                        Text(String(year))
                     }
                 }
             } label: {
                 HStack {
-                    Text("\(selectedYear)")
+                    Text(String(selectedYear))
                         .font(.system(size: 16))
                         .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                     
