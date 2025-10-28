@@ -104,6 +104,13 @@ struct TripAssignmentView: View {
             .onAppear {
                 loadTrips()
             }
+            .onChange(of: appViewModel.currentCompany?.id) { newCompanyId in
+                if let companyId = newCompanyId {
+                    viewModel.fetchTrips(for: companyId)
+                    viewModel.fetchVehicles(for: companyId)
+                    viewModel.fetchDrivers(for: companyId)
+                }
+            }
             .sheet(isPresented: $showingAddTrip) {
                 AddEditTripView(viewModel: viewModel, appViewModel: appViewModel)
             }
@@ -401,7 +408,7 @@ struct TripDetailView: View {
     @State private var showingStatusMenu = false
     
     let trip: Trip
-    let viewModel: TripViewModel
+    @ObservedObject var viewModel: TripViewModel
     let appViewModel: AppViewModel
     let onDelete: (Trip) -> Void
     
