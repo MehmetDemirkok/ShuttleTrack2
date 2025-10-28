@@ -4,14 +4,17 @@ import FirebaseAuth
 struct SettingsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @Environment(\.presentationMode) var presentationMode
-    @State private var notificationsEnabled = true
-    @State private var darkModeEnabled = false
-    @State private var autoSyncEnabled = true
+    @StateObject private var settingsManager = SettingsManager.shared
     @State private var showingLanguagePicker = false
-    @State private var selectedLanguage = "Türkçe"
     @State private var showingAbout = false
     @State private var showingPrivacyPolicy = false
     @State private var showingTermsOfService = false
+    @State private var showingPasswordChange = false
+    @State private var showingProfileEdit = false
+    @State private var showingAccountInfo = false
+    @State private var showingClearDataAlert = false
+    @State private var showingSuccessAlert = false
+    @State private var successMessage = ""
     
     var body: some View {
         NavigationView {
@@ -56,7 +59,7 @@ struct SettingsView: View {
                                     subtitle: "Push bildirimleri al",
                                     icon: "bell.fill",
                                     iconColor: .orange,
-                                    isOn: $notificationsEnabled
+                                    isOn: $settingsManager.notificationsEnabled
                                 )
                                 
                                 SettingsToggleRow(
@@ -64,7 +67,7 @@ struct SettingsView: View {
                                     subtitle: "Otomatik tema değişimi",
                                     icon: "moon.fill",
                                     iconColor: .purple,
-                                    isOn: $darkModeEnabled
+                                    isOn: $settingsManager.darkModeEnabled
                                 )
                                 
                                 SettingsToggleRow(
@@ -72,12 +75,12 @@ struct SettingsView: View {
                                     subtitle: "Verileri otomatik güncelle",
                                     icon: "arrow.clockwise.circle.fill",
                                     iconColor: .green,
-                                    isOn: $autoSyncEnabled
+                                    isOn: $settingsManager.autoSyncEnabled
                                 )
                                 
                                 SettingsNavigationRow(
                                     title: "Dil",
-                                    subtitle: selectedLanguage,
+                                    subtitle: settingsManager.selectedLanguage,
                                     icon: "globe",
                                     iconColor: .blue
                                 ) {
@@ -99,7 +102,7 @@ struct SettingsView: View {
                                     icon: "pencil.circle.fill",
                                     iconColor: .blue
                                 ) {
-                                    // Profile edit action
+                                    showingProfileEdit = true
                                 }
                                 
                                 SettingsNavigationRow(
@@ -108,7 +111,7 @@ struct SettingsView: View {
                                     icon: "key.fill",
                                     iconColor: .orange
                                 ) {
-                                    // Password change action
+                                    showingPasswordChange = true
                                 }
                                 
                                 SettingsNavigationRow(
@@ -117,7 +120,7 @@ struct SettingsView: View {
                                     icon: "info.circle.fill",
                                     iconColor: .purple
                                 ) {
-                                    // Account info action
+                                    showingAccountInfo = true
                                 }
                             }
                         }
@@ -162,7 +165,7 @@ struct SettingsView: View {
                                     icon: "trash.fill",
                                     iconColor: .red
                                 ) {
-                                    clearAppData()
+                                    showingClearDataAlert = true
                                 }
                             }
                         }
@@ -214,7 +217,7 @@ struct SettingsView: View {
                 }
             )
             .sheet(isPresented: $showingLanguagePicker) {
-                LanguagePickerView(selectedLanguage: $selectedLanguage)
+                LanguagePickerView(selectedLanguage: $settingsManager.selectedLanguage)
             }
             .sheet(isPresented: $showingAbout) {
                 AboutView()
@@ -225,12 +228,35 @@ struct SettingsView: View {
             .sheet(isPresented: $showingTermsOfService) {
                 TermsOfServiceView()
             }
+            .sheet(isPresented: $showingPasswordChange) {
+                PasswordChangeView()
+            }
+            .sheet(isPresented: $showingProfileEdit) {
+                EditProfileView()
+            }
+            .sheet(isPresented: $showingAccountInfo) {
+                AccountInfoView()
+            }
+            .alert("Verileri Temizle", isPresented: $showingClearDataAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Temizle", role: .destructive) {
+                    clearAppData()
+                }
+            } message: {
+                Text("Tüm önbellek verileri ve geçici dosyalar silinecek. Bu işlem geri alınamaz.")
+            }
+            .alert("Başarılı", isPresented: $showingSuccessAlert) {
+                Button("Tamam") { }
+            } message: {
+                Text(successMessage)
+            }
         }
     }
     
     private func clearAppData() {
-        // Clear app data implementation
-        print("App data cleared")
+        settingsManager.clearAppData()
+        successMessage = "Veriler başarıyla temizlendi"
+        showingSuccessAlert = true
     }
 }
 
