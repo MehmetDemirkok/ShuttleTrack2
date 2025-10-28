@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
