@@ -83,6 +83,10 @@ struct VehicleManagementView: View {
             .sheet(isPresented: $showingVehicleDetail) {
                 if let vehicle = vehicleForDetail {
                     VehicleDetailView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
+                        .onAppear {
+                            // Detay sayfası açıldığında gerekli verileri yükle
+                            loadDetailData()
+                        }
                 }
             }
         }
@@ -90,6 +94,12 @@ struct VehicleManagementView: View {
     
     private func loadVehicles() {
         guard let companyId = appViewModel.currentCompany?.id else { return }
+        viewModel.fetchVehicles(for: companyId)
+    }
+    
+    private func loadDetailData() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        // Detay sayfası için gerekli tüm verileri yükle
         viewModel.fetchVehicles(for: companyId)
     }
 }
@@ -528,7 +538,18 @@ struct VehicleDetailView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
+            if viewModel.isLoading {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    
+                    Text("Detaylar yükleniyor...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
                 VStack(spacing: 24) {
                     
                     // Header Section
@@ -742,30 +763,31 @@ struct VehicleDetailView: View {
                     
                     Spacer(minLength: 20)
                 }
-            }
-            .navigationTitle("Araç Detayları")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button("Kapat") {
-                    presentationMode.wrappedValue.dismiss()
                 }
+            }
+        }
+        .navigationTitle("Araç Detayları")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarItems(
+            trailing: Button("Kapat") {
+                presentationMode.wrappedValue.dismiss()
+            }
+        )
+        .sheet(isPresented: $showingEditSheet) {
+            AddEditVehicleView(
+                vehicle: vehicle,
+                viewModel: viewModel,
+                appViewModel: appViewModel
             )
-            .sheet(isPresented: $showingEditSheet) {
-                AddEditVehicleView(
-                    vehicle: vehicle,
-                    viewModel: viewModel,
-                    appViewModel: appViewModel
-                )
+        }
+        .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Sil", role: .destructive) {
+                viewModel.deleteVehicle(vehicle)
+                presentationMode.wrappedValue.dismiss()
             }
-            .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
-                Button("İptal", role: .cancel) { }
-                Button("Sil", role: .destructive) {
-                    viewModel.deleteVehicle(vehicle)
-                    presentationMode.wrappedValue.dismiss()
-                }
-            } message: {
-                Text("Bu aracı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
-            }
+        } message: {
+            Text("Bu aracı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
         }
     }
     

@@ -83,6 +83,10 @@ struct DriverManagementView: View {
             .sheet(isPresented: $showingDriverDetail) {
                 if let driver = driverForDetail {
                     DriverDetailView(driver: driver, viewModel: viewModel, appViewModel: appViewModel)
+                        .onAppear {
+                            // Detay sayfası açıldığında gerekli verileri yükle
+                            loadDetailData()
+                        }
                 }
             }
         }
@@ -90,6 +94,12 @@ struct DriverManagementView: View {
     
     private func loadDrivers() {
         guard let companyId = appViewModel.currentCompany?.id else { return }
+        viewModel.fetchDrivers(for: companyId)
+    }
+    
+    private func loadDetailData() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        // Detay sayfası için gerekli tüm verileri yükle
         viewModel.fetchDrivers(for: companyId)
     }
 }
@@ -210,7 +220,18 @@ struct DriverDetailView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
+            if viewModel.isLoading {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    
+                    Text("Detaylar yükleniyor...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
                 VStack(spacing: 24) {
                     // Header Section
                     VStack(spacing: 16) {
@@ -421,30 +442,31 @@ struct DriverDetailView: View {
                     
                     Spacer(minLength: 20)
                 }
-            }
-            .navigationTitle("Sürücü Detayları")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(
-                trailing: Button("Kapat") {
-                    presentationMode.wrappedValue.dismiss()
                 }
+            }
+        }
+        .navigationTitle("Sürücü Detayları")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarItems(
+            trailing: Button("Kapat") {
+                presentationMode.wrappedValue.dismiss()
+            }
+        )
+        .sheet(isPresented: $showingEditSheet) {
+            AddEditDriverView(
+                driver: driver,
+                viewModel: viewModel,
+                appViewModel: appViewModel
             )
-            .sheet(isPresented: $showingEditSheet) {
-                AddEditDriverView(
-                    driver: driver,
-                    viewModel: viewModel,
-                    appViewModel: appViewModel
-                )
+        }
+        .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
+            Button("İptal", role: .cancel) { }
+            Button("Sil", role: .destructive) {
+                viewModel.deleteDriver(driver)
+                presentationMode.wrappedValue.dismiss()
             }
-            .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
-                Button("İptal", role: .cancel) { }
-                Button("Sil", role: .destructive) {
-                    viewModel.deleteDriver(driver)
-                    presentationMode.wrappedValue.dismiss()
-                }
-            } message: {
-                Text("Bu sürücüyü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
-            }
+        } message: {
+            Text("Bu sürücüyü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
         }
     }
 }

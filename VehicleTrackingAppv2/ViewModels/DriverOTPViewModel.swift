@@ -1,6 +1,6 @@
 import SwiftUI
 import Combine
-import FirebaseAuth
+@preconcurrency import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFirestoreSwift
 
@@ -112,7 +112,11 @@ class DriverOTPViewModel: ObservableObject {
     }
     
     private func ensureDriverProfile(user: User, driver: Driver, appViewModel: AppViewModel) {
-        db.collection("userProfiles").document(user.uid).getDocument { [weak self] doc, _ in
+        let userId = user.uid
+        let userEmail = user.email ?? ""
+        let phoneNumber = self.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        db.collection("userProfiles").document(userId).getDocument { [weak self] doc, _ in
             DispatchQueue.main.async {
                 if let doc = doc, doc.exists {
                     // Profil var, AppViewModel zaten state'i güncelleyecek
@@ -122,11 +126,11 @@ class DriverOTPViewModel: ObservableObject {
                 }
                 // Yeni profil oluştur
                 var profile = UserProfile(
-                    userId: user.uid,
+                    userId: userId,
                     userType: .driver,
-                    email: user.email ?? "",
+                    email: userEmail,
                     fullName: driver.fullName,
-                    phone: self?.phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+                    phone: phoneNumber,
                     companyId: driver.companyId,
                     driverLicenseNumber: nil
                 )

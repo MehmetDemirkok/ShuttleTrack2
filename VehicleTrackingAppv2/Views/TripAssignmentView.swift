@@ -125,6 +125,10 @@ struct TripAssignmentView: View {
                             showingDeleteAlert = true
                         }
                     )
+                    .onAppear {
+                        // Detay sayfası açıldığında gerekli verileri yükle
+                        loadDetailData()
+                    }
                 }
             }
             .alert("İşi Sil", isPresented: $showingDeleteAlert) {
@@ -163,6 +167,14 @@ struct TripAssignmentView: View {
     
     private func loadTrips() {
         guard let companyId = appViewModel.currentCompany?.id else { return }
+        viewModel.fetchTrips(for: companyId)
+        viewModel.fetchVehicles(for: companyId)
+        viewModel.fetchDrivers(for: companyId)
+    }
+    
+    private func loadDetailData() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        // Detay sayfası için gerekli tüm verileri yükle
         viewModel.fetchTrips(for: companyId)
         viewModel.fetchVehicles(for: companyId)
         viewModel.fetchDrivers(for: companyId)
@@ -414,7 +426,18 @@ struct TripDetailView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
+            if viewModel.isLoading && (viewModel.vehicles.isEmpty || viewModel.drivers.isEmpty) {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    
+                    Text("Detaylar yükleniyor...")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
                 VStack(spacing: 24) {
                     // Header
                     VStack(spacing: 12) {
@@ -594,13 +617,14 @@ struct TripDetailView: View {
                     .padding(.horizontal, 20)
                     Spacer(minLength: 20)
                 }
+                }
             }
-            .navigationTitle("İş Detayı")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarItems(trailing: Button("Kapat") { presentationMode.wrappedValue.dismiss() })
-            .sheet(isPresented: $showingEditSheet) {
-                AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
-            }
+        }
+        .navigationTitle("İş Detayı")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarItems(trailing: Button("Kapat") { presentationMode.wrappedValue.dismiss() })
+        .sheet(isPresented: $showingEditSheet) {
+            AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
         }
     }
     

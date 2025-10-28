@@ -399,7 +399,7 @@ struct AddEditTripView: View {
                 // Yolcu sayısı ile passengers senkronize başlat
                 syncPassengersWithCount()
             }
-            .onChange(of: passengerCount) { _ in
+            .onChange(of: passengerCount) {
                 syncPassengersWithCount()
             }
         }
