@@ -8,24 +8,51 @@ struct TripAssignmentView: View {
     @State private var selectedTrip: Trip?
     @State private var showingDeleteAlert = false
     @State private var tripToDelete: Trip?
-    @State private var selectedStatus: Trip.TripStatus = .scheduled
+    @State private var selectedStatus: Trip.TripStatus? = nil // nil = "Tümü"
     @State private var showingExportOptions = false
     @State private var exportedFileURL: URL?
     @State private var showingShareSheet = false
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Status Filter
-                Picker("Durum", selection: $selectedStatus) {
-                    Text("Tümü").tag(Trip.TripStatus.scheduled as Trip.TripStatus?)
-                    ForEach(Trip.TripStatus.allCases, id: \.self) { status in
-                        Text(status.rawValue).tag(status as Trip.TripStatus?)
-                    }
+            VStack(spacing: 0) {
+                // Başlık
+                HStack {
+                    Text("Transferler")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                    Spacer()
                 }
-                .pickerStyle(SegmentedPickerStyle())
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
                 
+                // Horizontal Scrollable Filter Buttons
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        // Tümü butonu
+                        FilterButton(
+                            title: "Tümü",
+                            isSelected: selectedStatus == nil,
+                            action: { selectedStatus = nil }
+                        )
+                        
+                        // Diğer status butonları
+                        ForEach(Trip.TripStatus.allCases, id: \.self) { status in
+                            FilterButton(
+                                title: status.statusShortText,
+                                isSelected: selectedStatus == status,
+                                action: { selectedStatus = status }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .padding(.vertical, 16)
+                
+                Divider()
+                    .background(Color.gray.opacity(0.3))
+                
+                // İçerik
                 if viewModel.isLoading {
                     ProgressView("İşler yükleniyor...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -46,22 +73,24 @@ struct TripAssignmentView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        ForEach(filteredTrips) { trip in
-                            TripRowView(
-                                trip: trip,
-                                onEdit: { 
-                                    selectedTrip = trip
-                                },
-                                onDelete: { 
-                                    tripToDelete = trip
-                                    showingDeleteAlert = true
-                                },
-                                onStatusChange: { newStatus in
-                                    viewModel.updateTripStatus(trip, status: newStatus)
-                                }
-                            )
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            ForEach(filteredTrips) { trip in
+                                TransferCardView(
+                                    trip: trip,
+                                    onEdit: { selectedTrip = trip },
+                                    onDelete: {
+                                        tripToDelete = trip
+                                        showingDeleteAlert = true
+                                    },
+                                    onStatusChange: { newStatus in
+                                        viewModel.updateTripStatus(trip, status: newStatus)
+                                    }
+                                )
+                                .padding(.horizontal, 16)
+                            }
                         }
+                        .padding(.top, 8)
                     }
                 }
                 
@@ -73,7 +102,8 @@ struct TripAssignmentView: View {
                 }
             }
             .background(ShuttleTrackTheme.Colors.background)
-            .navigationTitle("İşler")
+            .navigationTitle("")
+            .navigationBarHidden(true)
             .navigationBarItems(
                 leading: Button(action: {
                     showingExportOptions = true
@@ -127,7 +157,7 @@ struct TripAssignmentView: View {
     }
     
     private var filteredTrips: [Trip] {
-        if selectedStatus == .scheduled {
+        if selectedStatus == nil {
             return viewModel.trips
         } else {
             return viewModel.trips.filter { $0.status == selectedStatus }
@@ -142,6 +172,102 @@ struct TripAssignmentView: View {
     }
 }
 
+// MARK: - Transfer Card
+struct TransferCardView: View {
+    let trip: Trip
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    let onStatusChange: (Trip.TripStatus) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Üst satır: iş numarası ve durum rozeti
+            HStack {
+                Text(trip.tripNumber)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.primary)
+                Spacer()
+                HStack(spacing: 6) {
+                    Circle().fill(trip.statusColor).frame(width: 8, height: 8)
+                    Text(trip.statusText)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(trip.statusColor)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(trip.statusColor.opacity(0.12))
+                        .cornerRadius(16)
+                }
+            }
+
+            // Konumlar
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    Circle().fill(ShuttleTrackTheme.Colors.success).frame(width: 14, height: 14)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(trip.pickupLocation.name).font(.system(size: 16, weight: .semibold))
+                        if !trip.pickupLocation.address.isEmpty {
+                            Text(trip.pickupLocation.address).font(.system(size: 12)).foregroundColor(.secondary)
+                        }
+                    }
+                }
+                HStack(alignment: .top, spacing: 12) {
+                    Circle().fill(ShuttleTrackTheme.Colors.warning).frame(width: 14, height: 14)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(trip.dropoffLocation.name).font(.system(size: 16, weight: .semibold))
+                        if !trip.dropoffLocation.address.isEmpty {
+                            Text(trip.dropoffLocation.address).font(.system(size: 12)).foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+
+            // Bilgi satırları
+            HStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Image(systemName: "calendar").foregroundColor(ShuttleTrackTheme.Colors.timeIcon)
+                    Text("Tarih").font(.caption).foregroundColor(.secondary)
+                    Text(dateTimeString(trip.scheduledPickupTime)).font(.system(size: 14, weight: .semibold))
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Image(systemName: "person.2").foregroundColor(ShuttleTrackTheme.Colors.personIcon)
+                    Text("Yolcu").font(.caption).foregroundColor(.secondary)
+                    Text("\(trip.passengerCount) kişi").font(.system(size: 14, weight: .semibold))
+                }
+                Spacer()
+            }
+
+            // Aksiyonlar
+            HStack(spacing: 12) {
+                Button("Düzenle") { onEdit() }
+                    .buttonStyle(ShuttleTrackButtonStyle(variant: .secondary, size: .small))
+
+                Menu("Durum") {
+                    ForEach(Trip.TripStatus.allCases, id: \.self) { status in
+                        if status != trip.status {
+                            Button(status.statusShortText) { onStatusChange(status) }
+                        }
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.orange)
+
+                Button("Sil") { onDelete() }
+                    .buttonStyle(ShuttleTrackButtonStyle(variant: .outline, size: .small))
+            }
+        }
+        .padding(16)
+        .background(ShuttleTrackTheme.Colors.cardBackground)
+        .cornerRadius(20)
+        .shadow(color: ShuttleTrackTheme.Shadows.small, radius: 8, x: 0, y: 2)
+    }
+
+    private func dateTimeString(_ date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "tr_TR")
+        dateFormatter.dateFormat = "d MMM, HH:mm"
+        return dateFormatter.string(from: date)
+    }
+}
 struct TripRowView: View {
     let trip: Trip
     let onEdit: () -> Void
@@ -170,12 +296,12 @@ struct TripRowView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     HStack {
                         Circle()
-                            .fill(Color(trip.statusColor))
+                            .fill(trip.statusColor)
                             .frame(width: 8, height: 8)
                         
                         Text(trip.statusText)
                             .font(.caption)
-                            .foregroundColor(Color(trip.statusColor))
+                            .foregroundColor(trip.statusColor)
                     }
                     
                     Text(trip.scheduledPickupTime, style: .time)
@@ -225,7 +351,7 @@ struct TripRowView: View {
                     Menu("Durum") {
                         ForEach(Trip.TripStatus.allCases, id: \.self) { status in
                             if status != trip.status {
-                                Button(status.rawValue) {
+                                Button(status.statusShortText) {
                                     onStatusChange(status)
                                 }
                             }
@@ -379,6 +505,28 @@ struct ShareSheet: UIViewControllerRepresentable {
 struct TripAssignmentView_Previews: PreviewProvider {
     static var previews: some View {
         TripAssignmentView()
+    }
+}
+
+// MARK: - FilterButton Component
+struct FilterButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(isSelected ? .white : .primary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(isSelected ? ShuttleTrackTheme.Colors.primaryBlue : Color.gray.opacity(0.1))
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

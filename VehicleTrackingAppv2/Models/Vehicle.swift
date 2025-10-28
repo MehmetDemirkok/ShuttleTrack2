@@ -69,8 +69,8 @@ struct Vehicle: Identifiable, Codable {
         return isActive ? "Aktif" : "Pasif"
     }
     
-    var statusColor: String {
-        return isActive ? "green" : "red"
+    var statusColor: Color {
+        return isActive ? .green : .red
     }
     
     // Sigorta bitiş tarihine kalan gün sayısı
