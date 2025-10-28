@@ -73,7 +73,7 @@ struct AccountInfoView: View {
                             Text("Şirket ID")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text(profile.companyId)
+                            Text(profile.companyId ?? "Belirtilmemiş")
                                 .foregroundColor(.primary)
                                 .font(.caption)
                         }
