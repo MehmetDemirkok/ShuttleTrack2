@@ -8,8 +8,12 @@ struct AddEditTripView: View {
     // Temel Bilgiler
     @State private var tripNumber = ""
     @State private var passengerCount = 1
-    @State private var passengerName = ""
-    @State private var passengerPhone = ""
+    struct PassengerEntry: Identifiable, Equatable {
+        let id = UUID()
+        var name: String = ""
+        var phone: String = ""
+    }
+    @State private var passengers: [PassengerEntry] = [PassengerEntry()]
     @State private var flightNumber = ""
     @State private var notes = ""
     @State private var fare: String = ""
@@ -60,15 +64,20 @@ struct AddEditTripView: View {
             if let notes = trip.notes {
                 let lines = notes.components(separatedBy: "\n")
                 var cleanNotes: [String] = []
+                var parsedPassengers: [PassengerEntry] = []
                 
                 for line in lines {
                     if line.hasPrefix("Yolcu:") {
                         let name = line.replacingOccurrences(of: "Yolcu: ", with: "")
-                        _passengerName = State(initialValue: name)
+                        parsedPassengers.append(PassengerEntry(name: name, phone: ""))
                     } else if line.hasPrefix("Tel:") || line.hasPrefix("Telefon:") {
                         let phone = line.replacingOccurrences(of: "Tel: ", with: "")
                             .replacingOccurrences(of: "Telefon: ", with: "")
-                        _passengerPhone = State(initialValue: phone)
+                        if parsedPassengers.isEmpty {
+                            parsedPassengers.append(PassengerEntry(name: "", phone: phone))
+                        } else {
+                            parsedPassengers[parsedPassengers.count - 1].phone = phone
+                        }
                     } else if line.hasPrefix("Uçuş:") || line.hasPrefix("Uçuş No:") {
                         let flight = line.replacingOccurrences(of: "Uçuş: ", with: "")
                             .replacingOccurrences(of: "Uçuş No: ", with: "")
@@ -79,6 +88,9 @@ struct AddEditTripView: View {
                 }
                 
                 _notes = State(initialValue: cleanNotes.joined(separator: "\n"))
+                if !parsedPassengers.isEmpty {
+                    _passengers = State(initialValue: parsedPassengers)
+                }
             } else {
                 _notes = State(initialValue: "")
             }
@@ -144,22 +156,30 @@ struct AddEditTripView: View {
                     FormCard {
                         FormSectionHeader(title: "Yolcu Bilgileri", icon: "person.fill", iconColor: ShuttleTrackTheme.Colors.personIcon)
                         
-                        FormInputField(
-                            title: "Yolcu Adı (Opsiyonel)",
-                            placeholder: "Yolcu Adı",
-                            icon: "person.text.rectangle",
-                            iconColor: ShuttleTrackTheme.Colors.personIcon,
-                            text: $passengerName
-                        )
-                        
-                        FormInputField(
-                            title: "Telefon (Opsiyonel)",
-                            placeholder: "Telefon",
-                            icon: "phone.fill",
-                            iconColor: ShuttleTrackTheme.Colors.phoneIcon,
-                            text: $passengerPhone,
-                            keyboardType: .phonePad
-                        )
+                        ForEach(Array(passengers.enumerated()), id: \.element.id) { index, _ in
+                            FormInputField(
+                                title: passengers.count > 1 ? "Yolcu Adı #\(index + 1) (Opsiyonel)" : "Yolcu Adı (Opsiyonel)",
+                                placeholder: "Yolcu Adı",
+                                icon: "person.text.rectangle",
+                                iconColor: ShuttleTrackTheme.Colors.personIcon,
+                                text: Binding(
+                                    get: { passengers[index].name },
+                                    set: { passengers[index].name = $0 }
+                                )
+                            )
+                            
+                            FormInputField(
+                                title: passengers.count > 1 ? "Telefon #\(index + 1) (Opsiyonel)" : "Telefon (Opsiyonel)",
+                                placeholder: "Telefon",
+                                icon: "phone.fill",
+                                iconColor: ShuttleTrackTheme.Colors.phoneIcon,
+                                text: Binding(
+                                    get: { passengers[index].phone },
+                                    set: { passengers[index].phone = $0 }
+                                ),
+                                keyboardType: .phonePad
+                            )
+                        }
                     }
                     
                     // Alış Noktası
@@ -376,6 +396,11 @@ struct AddEditTripView: View {
                 if !isEditing, tripNumber.isEmpty {
                     generateTripNumber()
                 }
+                // Yolcu sayısı ile passengers senkronize başlat
+                syncPassengersWithCount()
+            }
+            .onChange(of: passengerCount) { _ in
+                syncPassengersWithCount()
             }
         }
     }
@@ -463,7 +488,7 @@ struct AddEditTripView: View {
             address: dropoffAddress,
             latitude: 0.0,
             longitude: 0.0,
-            notes: passengerName.isEmpty ? nil : "Yolcu: \(passengerName), Tel: \(passengerPhone)"
+            notes: nil
         )
         
         var newTrip = Trip(
@@ -481,11 +506,17 @@ struct AddEditTripView: View {
         // Opsiyonel alanları ekle
         if !notes.isEmpty {
             var combinedNotes = notes
-            if !passengerName.isEmpty {
-                combinedNotes = "Yolcu: \(passengerName)\n" + combinedNotes
-            }
-            if !passengerPhone.isEmpty {
-                combinedNotes += "\nTelefon: \(passengerPhone)"
+            let passengerLines = passengers
+                .filter { !$0.name.isEmpty || !$0.phone.isEmpty }
+                .map { entry in
+                    var parts: [String] = []
+                    if !entry.name.isEmpty { parts.append("Yolcu: \(entry.name)") }
+                    if !entry.phone.isEmpty { parts.append("Telefon: \(entry.phone)") }
+                    return parts.joined(separator: "\n")
+                }
+                .joined(separator: "\n")
+            if !passengerLines.isEmpty {
+                combinedNotes = passengerLines + (combinedNotes.isEmpty ? "" : "\n") + combinedNotes
             }
             if !flightNumber.isEmpty {
                 combinedNotes += "\nUçuş No: \(flightNumber)"
@@ -493,11 +524,9 @@ struct AddEditTripView: View {
             newTrip.notes = combinedNotes
         } else {
             var notesParts: [String] = []
-            if !passengerName.isEmpty {
-                notesParts.append("Yolcu: \(passengerName)")
-            }
-            if !passengerPhone.isEmpty {
-                notesParts.append("Tel: \(passengerPhone)")
+            for entry in passengers where !entry.name.isEmpty || !entry.phone.isEmpty {
+                if !entry.name.isEmpty { notesParts.append("Yolcu: \(entry.name)") }
+                if !entry.phone.isEmpty { notesParts.append("Tel: \(entry.phone)") }
             }
             if !flightNumber.isEmpty {
                 notesParts.append("Uçuş: \(flightNumber)")
@@ -529,6 +558,16 @@ struct AddEditTripView: View {
             presentationMode.wrappedValue.dismiss()
         } else {
             errorMessage = viewModel.errorMessage
+        }
+    }
+
+    private func syncPassengersWithCount() {
+        if passengerCount < 1 { passengerCount = 1 }
+        if passengers.count < passengerCount {
+            let toAdd = passengerCount - passengers.count
+            passengers.append(contentsOf: Array(repeating: PassengerEntry(), count: toAdd))
+        } else if passengers.count > passengerCount {
+            passengers.removeLast(passengers.count - passengerCount)
         }
     }
 }
