@@ -73,67 +73,14 @@ struct AddEditVehicleView: View {
                             text: $model
                         )
                         
-                        // Yıl Counter
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "calendar")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(ShuttleTrackTheme.Colors.calendarIcon)
-                                    .frame(width: 20, height: 20)
-                                
-                                Text("Yıl")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
-                            }
-                            
-                            HStack {
-                                Button(action: {
-                                    if year > 1990 {
-                                        year -= 1
-                                    }
-                                }) {
-                                    Image(systemName: "minus")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
-                                        .frame(width: 32, height: 32)
-                                        .background(ShuttleTrackTheme.Colors.inputBackground)
-                                        .cornerRadius(8)
-                                }
-                                .disabled(year <= 1990)
-                                
-                                Spacer()
-                                
-                                Text("\(year)")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
-                                    .frame(minWidth: 40)
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    if year < Calendar.current.component(.year, from: Date()) {
-                                        year += 1
-                                    }
-                                }) {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
-                                        .frame(width: 32, height: 32)
-                                        .background(ShuttleTrackTheme.Colors.inputBackground)
-                                        .cornerRadius(8)
-                                }
-                                .disabled(year >= Calendar.current.component(.year, from: Date()))
-                            }
-                            .padding(12)
-                            .background(ShuttleTrackTheme.Colors.inputBackground)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
-                            )
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
+                        FormYearPickerField(
+                            title: "Yıl",
+                            icon: "calendar",
+                            iconColor: ShuttleTrackTheme.Colors.calendarIcon,
+                            selectedYear: $year,
+                            minYear: 1990,
+                            maxYear: Calendar.current.component(.year, from: Date())
+                        )
                         
                         FormCounterField(
                             title: "Kapasite",

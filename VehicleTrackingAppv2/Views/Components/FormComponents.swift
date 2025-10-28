@@ -272,6 +272,60 @@ struct FormPickerField: View {
     }
 }
 
+// MARK: - Form Year Picker Field
+struct FormYearPickerField: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    @Binding var selectedYear: Int
+    let minYear: Int
+    let maxYear: Int
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(iconColor)
+                    .frame(width: 20, height: 20)
+                
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+            }
+            
+            Menu {
+                ForEach(Array(stride(from: maxYear, through: minYear, by: -1)), id: \.self) { year in
+                    Button("\(year)") {
+                        selectedYear = year
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("\(selectedYear)")
+                        .font(.system(size: 16))
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                }
+                .padding(12)
+                .background(ShuttleTrackTheme.Colors.inputBackground)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(ShuttleTrackTheme.Colors.borderColor, lineWidth: 1)
+                )
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 16)
+    }
+}
+
 // MARK: - Form Toggle Field
 struct FormToggleField: View {
     let title: String
