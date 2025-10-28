@@ -86,7 +86,6 @@ class StatisticsService: ObservableObject {
         print("📅 Bugünkü işler listener kuruluyor - Company ID: \(companyId)")
         let listener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
@@ -120,7 +119,6 @@ class StatisticsService: ObservableObject {
         print("✅ Tamamlanan işler listener kuruluyor - Company ID: \(companyId)")
         let listener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 
