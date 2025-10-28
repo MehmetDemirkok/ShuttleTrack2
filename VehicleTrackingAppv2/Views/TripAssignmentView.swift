@@ -182,6 +182,21 @@ struct TripAssignmentView: View {
         case .cancelled: return "İptal Edildi"
         }
     }
+
+    private func statusColor(_ status: Trip.TripStatus) -> Color {
+        switch status {
+        case .scheduled:
+            return .orange
+        case .assigned:
+            return .blue
+        case .inProgress:
+            return .green
+        case .completed:
+            return .gray
+        case .cancelled:
+            return .red
+        }
+    }
 }
 
 // Araçlar sayfasına benzer kompakt kart görünümü
@@ -215,15 +230,15 @@ struct TripRowCard: View {
                     
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(Color(trip.statusColor))
+                            .fill(statusColor(trip.status))
                             .frame(width: 6, height: 6)
                         Text(trip.statusText)
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(Color(trip.statusColor))
+                            .foregroundColor(statusColor(trip.status))
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(trip.statusColor).opacity(0.1))
+                    .background(statusColor(trip.status).opacity(0.1))
                     .cornerRadius(12)
                 }
                 
@@ -417,15 +432,15 @@ struct TripDetailView: View {
                         
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(Color(trip.statusColor))
+                                .fill(statusColor(trip.status))
                                 .frame(width: 12, height: 12)
                             Text(trip.statusText)
                                 .font(.headline)
-                                .foregroundColor(Color(trip.statusColor))
+                                .foregroundColor(statusColor(trip.status))
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Color(trip.statusColor).opacity(0.1))
+                        .background(statusColor(trip.status).opacity(0.1))
                         .cornerRadius(20)
                     }
                     .padding(.top, 20)
