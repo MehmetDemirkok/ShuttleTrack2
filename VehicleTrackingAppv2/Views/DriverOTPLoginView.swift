@@ -65,6 +65,7 @@ struct DriverOTPLoginView: View {
             }
             .navigationBarItems(leading: Button("Kapat") { presentationMode.wrappedValue.dismiss() })
         }
+        .ignoresSafeArea(.keyboard)
     }
 }
 

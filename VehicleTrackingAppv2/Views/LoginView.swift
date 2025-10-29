@@ -115,6 +115,7 @@ struct LoginView: View {
             DriverOTPLoginView()
                 .environmentObject(appViewModel)
         }
+        .ignoresSafeArea(.keyboard)
     }
     
     private func signIn() {

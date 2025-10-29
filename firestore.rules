@@ -1,0 +1,229 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data;
+    }
+    
+    function isCompanyAdmin() {
+      return isAuthenticated() && getUserProfile().userType == 'company_admin';
+    }
+    
+    function isDriver() {
+      return isAuthenticated() && getUserProfile().userType == 'driver';
+    }
+    
+    function getUserCompanyId() {
+      return getUserProfile().companyId;
+    }
+    
+    function belongsToUserCompany(resource) {
+      return resource.data.companyId == getUserCompanyId();
+    }
+    
+    function belongsToUserCompanyRequest(request) {
+      return request.resource.data.companyId == getUserCompanyId();
+    }
+    
+    function isValidUserType() {
+      return request.resource.data.userType in ['company_admin', 'driver'];
+    }
+    
+    function isValidTripStatus() {
+      return request.resource.data.status in ['scheduled', 'assigned', 'in_progress', 'completed', 'cancelled'];
+    }
+    
+    function isValidVehicleType() {
+      return request.resource.data.vehicleType in ['Otomobil', 'Minibüs', 'Midibus', 'Otobüs', 'Kamyon', 'Minivan', 'Van', 'Pickup'];
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    // Companies Collection Rules
+    match /companies/{companyId} {
+      // Okuma: aynı şirketteki tüm doğrulanmış kullanıcılar (admin + sürücü)
+      allow read: if isAuthenticated() && 
+        getUserCompanyId() == companyId;
+
+      // Güncelleme: sadece şirket admin'i kendi şirketini güncelleyebilir
+      allow update: if isCompanyAdmin() && 
+        getUserCompanyId() == companyId;
+      
+      // Yeni şirket oluşturma - sadece authenticated kullanıcılar
+      allow create: if isAuthenticated() && 
+        hasRequiredFields(['name', 'email', 'phone', 'address', 'licenseNumber', 'isActive', 'createdAt', 'updatedAt']) &&
+        request.resource.data.isActive == true;
+      
+      // Şirket silme - sadece şirket admin'i kendi şirketini silebilir
+      allow delete: if isCompanyAdmin() && 
+        getUserCompanyId() == companyId;
+    }
+    
+    // User Profiles Collection Rules
+    match /userProfiles/{userId} {
+      // Kullanıcılar sadece kendi profillerini okuyabilir
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Profil oluşturma - sadece kendi profili
+      allow create: if isAuthenticated() && 
+        request.auth.uid == userId &&
+        hasRequiredFields(['userId', 'userType', 'email', 'fullName', 'isActive', 'createdAt']) &&
+        isValidUserType() &&
+        request.resource.data.userId == userId &&
+        request.resource.data.isActive == true;
+      
+      // Profil güncelleme - sadece kendi profili, bazı alanlar değiştirilemez
+      allow update: if isAuthenticated() && 
+        request.auth.uid == userId &&
+        isValidUserType() &&
+        request.resource.data.userId == userId &&
+        request.resource.data.isActive == true &&
+        // Bu alanlar değiştirilemez
+        request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Profil silme - sadece kendi profili
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Vehicles Collection Rules
+    match /vehicles/{vehicleId} {
+      // Okuma: admin ve sürücüler kendi şirketinin araçlarını okuyabilir
+      allow read: if (
+        isCompanyAdmin() && belongsToUserCompany(resource)
+      ) || (
+        isDriver() && belongsToUserCompany(resource)
+      );
+      
+      // Yazma: sadece admin, request üzerinden alan/doğrulama kontrolleri ile
+      allow create, update, delete: if isCompanyAdmin() && 
+        belongsToUserCompanyRequest(request) &&
+        hasRequiredFields(['plateNumber', 'model', 'brand', 'year', 'capacity', 'vehicleType', 'color', 'insuranceExpiryDate', 'inspectionExpiryDate', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
+        isValidVehicleType() &&
+        request.resource.data.companyId == getUserCompanyId();
+      
+      // Şoförler sadece kendi şirketinin araçlarını okuyabilir
+      allow read: if isDriver() && belongsToUserCompany(resource);
+      
+      // Araç oluşturma için ek validasyonlar
+      allow create: if isCompanyAdmin() && 
+        belongsToUserCompanyRequest(request) &&
+        request.resource.data.year >= 1900 &&
+        request.resource.data.year <= 2030 &&
+        request.resource.data.capacity > 0 &&
+        request.resource.data.capacity <= 100 &&
+        request.resource.data.plateNumber.size() >= 5 &&
+        request.resource.data.plateNumber.size() <= 15;
+    }
+    
+    // Drivers Collection Rules
+    match /drivers/{driverId} {
+      // Okuma: admin kendi şirketinin şoförlerini okuyabilir
+      allow read: if isCompanyAdmin() && belongsToUserCompany(resource);
+      
+      // Yazma: sadece admin
+      allow create, update, delete: if isCompanyAdmin() && 
+        belongsToUserCompanyRequest(request) &&
+        hasRequiredFields(['firstName', 'lastName', 'phoneNumber', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
+        request.resource.data.companyId == getUserCompanyId();
+      
+      // Şoförler sadece kendi bilgilerini okuyabilir (authUserId ile eşleşen)
+      allow read: if isDriver() && 
+        belongsToUserCompany(resource) &&
+        (resource.data.authUserId == request.auth.uid || resource.data.authUserId == null);
+      
+      // Şoförler kendi bilgilerini güncelleyebilir (sadece belirli alanlar)
+      allow update: if isDriver() && 
+        belongsToUserCompany(resource) &&
+        resource.data.authUserId == request.auth.uid &&
+        // Sadece bu alanlar güncellenebilir
+        request.resource.data.keys().hasOnly(['firstName', 'lastName', 'phoneNumber', 'updatedAt']) &&
+        request.resource.data.companyId == resource.data.companyId &&
+        request.resource.data.isActive == resource.data.isActive &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+    
+    // Trips Collection Rules
+    match /trips/{tripId} {
+      // Okuma: admin kendi şirketinin transferlerini okuyabilir
+      allow read: if isCompanyAdmin() && belongsToUserCompany(resource);
+      
+      // Yazma: sadece admin
+      allow create, update, delete: if isCompanyAdmin() && 
+        belongsToUserCompanyRequest(request) &&
+        hasRequiredFields(['companyId', 'vehicleId', 'driverId', 'tripNumber', 'pickupLocation', 'dropoffLocation', 'scheduledPickupTime', 'scheduledDropoffTime', 'status', 'passengerCount', 'createdAt', 'updatedAt']) &&
+        isValidTripStatus() &&
+        request.resource.data.companyId == getUserCompanyId() &&
+        request.resource.data.passengerCount > 0 &&
+        request.resource.data.passengerCount <= 100;
+      
+      // Şoförler sadece kendi şirketinin transferlerini okuyabilir
+      allow read: if isDriver() && belongsToUserCompany(resource);
+      
+      // Şoförler sadece kendilerine atanan transferleri güncelleyebilir
+      allow update: if isDriver() && 
+        belongsToUserCompany(resource) &&
+        resource.data.driverId == getUserProfile().driverLicenseNumber &&
+        // Sadece bu alanlar güncellenebilir
+        request.resource.data.keys().hasOnly(['actualPickupTime', 'actualDropoffTime', 'status', 'notes', 'updatedAt']) &&
+        isValidTripStatus() &&
+        request.resource.data.companyId == resource.data.companyId &&
+        request.resource.data.driverId == resource.data.driverId &&
+        request.resource.data.vehicleId == resource.data.vehicleId &&
+        request.resource.data.tripNumber == resource.data.tripNumber &&
+        request.resource.data.scheduledPickupTime == resource.data.scheduledPickupTime &&
+        request.resource.data.scheduledDropoffTime == resource.data.scheduledDropoffTime &&
+        request.resource.data.passengerCount == resource.data.passengerCount &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+    
+    // Trip Locations için nested rules (Trip içinde)
+    match /trips/{tripId}/locations/{locationId} {
+      allow read, write: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/trips/$(tripId)) &&
+        get(/databases/$(database)/documents/trips/$(tripId)).data.companyId == getUserCompanyId();
+    }
+    
+    // Vehicle Locations için nested rules (Vehicle içinde)
+    match /vehicles/{vehicleId}/locations/{locationId} {
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
+        get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.companyId == getUserCompanyId();
+      
+      // Sadece şoförler konum güncelleyebilir
+      allow write: if isDriver() && 
+        exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
+        get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.companyId == getUserCompanyId();
+    }
+    
+    // Statistics Collection Rules (eğer kullanılıyorsa)
+    match /statistics/{statId} {
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/statistics/$(statId)) &&
+        get(/databases/$(database)/documents/statistics/$(statId)).data.companyId == getUserCompanyId();
+      
+      allow write: if isCompanyAdmin() && 
+        request.resource.data.companyId == getUserCompanyId();
+    }
+    
+    // Settings Collection Rules (eğer kullanılıyorsa)
+    match /settings/{settingId} {
+      allow read, write: if isCompanyAdmin() && 
+        request.resource.data.companyId == getUserCompanyId();
+    }
+    
+    // Default deny rule - yukarıdaki kurallara uymayan tüm istekleri reddet
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
