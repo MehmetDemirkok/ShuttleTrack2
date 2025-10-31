@@ -61,8 +61,8 @@ service cloud.firestore {
       
       // Yeni şirket oluşturma - sadece authenticated kullanıcılar
       allow create: if (isAuthenticated() && 
-        hasRequiredFields(['name', 'email', 'phone', 'address', 'taxNumber', 'isActive', 'createdAt', 'updatedAt']);
-        ) || isOwner();
+        hasRequiredFields(['name', 'email', 'phone', 'address', 'taxNumber', 'isActive', 'createdAt', 'updatedAt']))
+        || isOwner();
       
       // Şirket silme - sadece şirket admin'i kendi şirketini silebilir
       allow delete: if isCompanyAdmin() && 
