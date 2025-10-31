@@ -5,11 +5,13 @@ import FirebaseFirestoreSwift
 
 class DriverViewModel: ObservableObject {
     @Published var drivers: [Driver] = []
+    @Published var currentDriver: Driver?
     @Published var isLoading = false
     @Published var errorMessage = ""
     
     private let db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
+    private var currentDriverListener: ListenerRegistration?
     
     func fetchDrivers(for companyId: String) {
         isLoading = true
@@ -43,6 +45,38 @@ class DriverViewModel: ObservableObject {
                     self?.drivers = drivers.sorted { $0.createdAt > $1.createdAt }
                 }
             }
+    }
+    
+    // Aktif oturumdaki sürücüyü (telefon numarasına göre) gözlemle
+    func observeCurrentDriver(companyId: String, phone: String) {
+        currentDriverListener?.remove()
+        isLoading = true
+        errorMessage = ""
+        currentDriver = nil
+        
+        currentDriverListener = db.collection("drivers")
+            .whereField("companyId", isEqualTo: companyId)
+            .whereField("phoneNumber", isEqualTo: phone)
+            .whereField("isActive", isEqualTo: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    if let error = error {
+                        self?.errorMessage = error.localizedDescription
+                        print("❌ Current driver observe error: \(error.localizedDescription)")
+                        return
+                    }
+                    guard let doc = snapshot?.documents.first else {
+                        self?.currentDriver = nil
+                        return
+                    }
+                    self?.currentDriver = try? doc.data(as: Driver.self)
+                }
+            }
+    }
+    
+    deinit {
+        currentDriverListener?.remove()
     }
     
     func addDriver(_ driver: Driver) {

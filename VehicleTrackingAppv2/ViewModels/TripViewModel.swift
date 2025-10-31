@@ -225,6 +225,30 @@ class TripViewModel: ObservableObject {
         print("Trip status updated to: \(status.rawValue) for trip: \(trip.id ?? "unknown")")
     }
     
+    // Sürücü: Yolculuğu başlat (pickup gerçekleşti)
+    func startTrip(_ trip: Trip) {
+        var updatedTrip = trip
+        updatedTrip.status = .inProgress
+        if updatedTrip.actualPickupTime == nil {
+            updatedTrip.actualPickupTime = Date()
+        }
+        updatedTrip.updatedAt = Date()
+        updateTrip(updatedTrip)
+        print("✅ Trip started: \(trip.id ?? "unknown")")
+    }
+    
+    // Sürücü: Yolculuğu tamamla (dropoff gerçekleşti)
+    func completeTrip(_ trip: Trip) {
+        var updatedTrip = trip
+        updatedTrip.status = .completed
+        if updatedTrip.actualDropoffTime == nil {
+            updatedTrip.actualDropoffTime = Date()
+        }
+        updatedTrip.updatedAt = Date()
+        updateTrip(updatedTrip)
+        print("✅ Trip completed: \(trip.id ?? "unknown")")
+    }
+    
     func assignTrip(_ trip: Trip, vehicleId: String?, driverId: String?) {
         var updatedTrip = trip
         updatedTrip.vehicleId = vehicleId ?? ""
