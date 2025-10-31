@@ -36,7 +36,7 @@ service cloud.firestore {
     }
     
     function isValidUserType() {
-      return request.resource.data.userType in ['company_admin', 'driver'];
+      return request.resource.data.userType in ['owner', 'company_admin', 'driver'];
     }
     
     function isValidTripStatus() {
