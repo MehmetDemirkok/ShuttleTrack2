@@ -11,6 +11,7 @@ class AdminViewModel: ObservableObject {
     @Published var trips: [Trip] = []
     @Published var isLoading = false
     @Published var errorMessage = ""
+    @Published var searchText = ""
 
     private let db = Firestore.firestore()
 
@@ -68,6 +69,36 @@ class AdminViewModel: ObservableObject {
     func setUserActive(_ userId: String, isActive: Bool) {
         db.collection("userProfiles").document(userId).updateData(["isActive": isActive, "updatedAt": Date()]) { [weak self] err in
             if let err = err { self?.errorMessage = err.localizedDescription }
+        }
+    }
+
+    func deleteCompany(_ companyId: String) {
+        db.collection("companies").document(companyId).delete { [weak self] err in
+            if let err = err { self?.errorMessage = err.localizedDescription } else { self?.loadAll() }
+        }
+    }
+
+    func deleteUser(_ userId: String) {
+        db.collection("userProfiles").document(userId).delete { [weak self] err in
+            if let err = err { self?.errorMessage = err.localizedDescription } else { self?.loadAll() }
+        }
+    }
+
+    func deleteVehicle(_ id: String) {
+        db.collection("vehicles").document(id).delete { [weak self] err in
+            if let err = err { self?.errorMessage = err.localizedDescription } else { self?.loadAll() }
+        }
+    }
+
+    func deleteDriver(_ id: String) {
+        db.collection("drivers").document(id).delete { [weak self] err in
+            if let err = err { self?.errorMessage = err.localizedDescription } else { self?.loadAll() }
+        }
+    }
+
+    func deleteTrip(_ id: String) {
+        db.collection("trips").document(id).delete { [weak self] err in
+            if let err = err { self?.errorMessage = err.localizedDescription } else { self?.loadAll() }
         }
     }
 }
