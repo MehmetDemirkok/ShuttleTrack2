@@ -10,6 +10,7 @@ struct DashboardView: View {
     @StateObject private var driverViewModel = DriverViewModel()
     @State private var selectedTab = 0
     @State private var showingProfile = false
+    @State private var showAdminPanel = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -194,6 +195,12 @@ struct DashboardView: View {
         }
         .onAppear {
             loadData()
+            if appViewModel.currentUserProfile?.userType == .owner {
+                showAdminPanel = true
+            }
+        }
+        .fullScreenCover(isPresented: $showAdminPanel) {
+            AdminPanelView()
         }
         .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
             // Şirket bilgisi sonradan geldiğinde istatistikleri ve listeleri yükle

@@ -3,6 +3,7 @@ import Foundation
 enum UserType: String, CaseIterable, Codable, Identifiable {
     case companyAdmin = "company_admin"
     case driver = "driver"
+    case owner = "owner"
     
     var id: String { self.rawValue }
     
@@ -12,6 +13,8 @@ enum UserType: String, CaseIterable, Codable, Identifiable {
             return "Şirket Yetkilisi"
         case .driver:
             return "Sürücü"
+        case .owner:
+            return "Sistem Yöneticisi"
         }
     }
     
@@ -21,6 +24,8 @@ enum UserType: String, CaseIterable, Codable, Identifiable {
             return "Şirket yönetimi ve operasyon yetkisi"
         case .driver:
             return "Araç kullanımı ve seyahat yönetimi"
+        case .owner:
+            return "Tüm sistemi yönetme yetkisi"
         }
     }
     
@@ -30,6 +35,8 @@ enum UserType: String, CaseIterable, Codable, Identifiable {
             return "building.2.fill"
         case .driver:
             return "person.fill"
+        case .owner:
+            return "shield.lefthalf.filled"
         }
     }
 }

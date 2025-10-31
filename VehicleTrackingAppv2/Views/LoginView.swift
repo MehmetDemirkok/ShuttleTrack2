@@ -122,7 +122,8 @@ struct LoginView: View {
         isLoading = true
         errorMessage = ""
         
-        Auth.auth().signIn(withEmail: email, password: password) { result, error in
+        let loginEmail: String = (email == "Admin") ? "admin@shuttletrack.local" : email
+        Auth.auth().signIn(withEmail: loginEmail, password: password) { result, error in
             DispatchQueue.main.async {
                 isLoading = false
                 if let error = error {

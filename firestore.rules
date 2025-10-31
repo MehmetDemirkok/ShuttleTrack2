@@ -15,6 +15,9 @@ service cloud.firestore {
     function isCompanyAdmin() {
       return isAuthenticated() && getUserProfile().userType == 'company_admin';
     }
+    function isOwner() {
+      return isAuthenticated() && getUserProfile().userType == 'owner';
+    }
     
     function isDriver() {
       return isAuthenticated() && getUserProfile().userType == 'driver';
@@ -51,16 +54,15 @@ service cloud.firestore {
     // Companies Collection Rules
     match /companies/{companyId} {
       // Okuma: aynı şirketteki tüm doğrulanmış kullanıcılar (admin + sürücü)
-      allow read: if isAuthenticated() && 
-        getUserCompanyId() == companyId;
+      allow read: if (isAuthenticated() && getUserCompanyId() == companyId) || isOwner();
 
       // Güncelleme: sadece şirket admin'i kendi şirketini güncelleyebilir
-      allow update: if isCompanyAdmin() && 
-        getUserCompanyId() == companyId;
+      allow update: if (isCompanyAdmin() && getUserCompanyId() == companyId) || isOwner();
       
       // Yeni şirket oluşturma - sadece authenticated kullanıcılar
-      allow create: if isAuthenticated() && 
+      allow create: if (isAuthenticated() && 
         hasRequiredFields(['name', 'email', 'phone', 'address', 'taxNumber', 'isActive', 'createdAt', 'updatedAt']);
+        ) || isOwner();
       
       // Şirket silme - sadece şirket admin'i kendi şirketini silebilir
       allow delete: if isCompanyAdmin() && 
@@ -70,7 +72,7 @@ service cloud.firestore {
     // User Profiles Collection Rules
     match /userProfiles/{userId} {
       // Kullanıcılar sadece kendi profillerini okuyabilir
-      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if (isAuthenticated() && request.auth.uid == userId) || isOwner();
       
       // Profil oluşturma - sadece kendi profili
       allow create: if isAuthenticated() && 
@@ -80,12 +82,9 @@ service cloud.firestore {
         request.resource.data.userId == userId;
       
       // Profil güncelleme - sadece kendi profili, bazı alanlar değiştirilemez
-      allow update: if isAuthenticated() && 
-        request.auth.uid == userId &&
-        isValidUserType() &&
-        request.resource.data.userId == userId &&
-        // Bu alanlar değiştirilemez
-        request.resource.data.createdAt == resource.data.createdAt;
+      allow update: if (
+        isAuthenticated() && request.auth.uid == userId && isValidUserType() && request.resource.data.userId == userId && request.resource.data.createdAt == resource.data.createdAt
+      ) || isOwner();
       
       // Profil silme - sadece kendi profili
       allow delete: if isAuthenticated() && request.auth.uid == userId;
@@ -95,17 +94,15 @@ service cloud.firestore {
     match /vehicles/{vehicleId} {
       // Okuma: admin ve sürücüler kendi şirketinin araçlarını okuyabilir
       allow read: if (
-        isCompanyAdmin() && belongsToUserCompany(resource)
-      ) || (
-        isDriver() && belongsToUserCompany(resource)
+        (isCompanyAdmin() && belongsToUserCompany(resource)) || (isDriver() && belongsToUserCompany(resource)) || isOwner()
       );
       
       // Yazma: sadece admin, request üzerinden alan/doğrulama kontrolleri ile
-      allow create, update, delete: if isCompanyAdmin() && 
+      allow create, update, delete: if (isCompanyAdmin() && 
         belongsToUserCompanyRequest(request) &&
         hasRequiredFields(['plateNumber', 'model', 'brand', 'year', 'capacity', 'vehicleType', 'color', 'insuranceExpiryDate', 'inspectionExpiryDate', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
         isValidVehicleType() &&
-        request.resource.data.companyId == getUserCompanyId();
+        request.resource.data.companyId == getUserCompanyId()) || isOwner();
       
       // Şoförler sadece kendi şirketinin araçlarını okuyabilir
       allow read: if isDriver() && belongsToUserCompany(resource);
@@ -124,13 +121,13 @@ service cloud.firestore {
     // Drivers Collection Rules
     match /drivers/{driverId} {
       // Okuma: admin kendi şirketinin şoförlerini okuyabilir
-      allow read: if isCompanyAdmin() && belongsToUserCompany(resource);
+      allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
       // Yazma: sadece admin
-      allow create, update, delete: if isCompanyAdmin() && 
+      allow create, update, delete: if (isCompanyAdmin() && 
         belongsToUserCompanyRequest(request) &&
         hasRequiredFields(['firstName', 'lastName', 'phoneNumber', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
-        request.resource.data.companyId == getUserCompanyId();
+        request.resource.data.companyId == getUserCompanyId()) || isOwner();
       
       // Şoförler sadece kendi bilgilerini okuyabilir (authUserId ile eşleşen)
       allow read: if isDriver() && 
@@ -151,10 +148,10 @@ service cloud.firestore {
     // Trips Collection Rules
     match /trips/{tripId} {
       // Okuma: admin kendi şirketinin transferlerini okuyabilir
-      allow read: if isCompanyAdmin() && belongsToUserCompany(resource);
+      allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
       // Yazma: sadece admin
-      allow create, update, delete: if isCompanyAdmin() && 
+      allow create, update, delete: if (isCompanyAdmin() && 
         belongsToUserCompanyRequest(request) &&
         hasRequiredFields(['companyId', 'vehicleId', 'driverId', 'tripNumber', 'pickupLocation', 'dropoffLocation', 'scheduledPickupTime', 'scheduledDropoffTime', 'status', 'passengerCount', 'createdAt', 'updatedAt']) &&
         isValidTripStatus() &&
@@ -163,7 +160,7 @@ service cloud.firestore {
           (request.resource.data.category == 'cargo' && request.resource.data.passengerCount >= 0) ||
           (request.resource.data.category != 'cargo' && request.resource.data.passengerCount > 0)
         ) &&
-        request.resource.data.passengerCount <= 100;
+        request.resource.data.passengerCount <= 100) || isOwner();
       
       // Şoförler sadece kendi şirketinin transferlerini okuyabilir
       allow read: if isDriver() && belongsToUserCompany(resource);
