@@ -125,7 +125,7 @@ struct AdminPanelView: View {
     }
 
     private var tripsTab: some View {
-        List(viewModel.trips.filter { viewModel.searchText.isEmpty ? true : (t.displayName.lowercased().contains(viewModel.searchText.lowercased())) }) { t in
+        List(viewModel.trips.filter { t in viewModel.searchText.isEmpty ? true : (t.displayName.lowercased().contains(viewModel.searchText.lowercased())) }) { t in
             VStack(alignment: .leading) {
                 Text(t.displayName).font(.headline)
                 Text("\(t.companyId) · \(t.statusText)").font(.caption).foregroundColor(.secondary)

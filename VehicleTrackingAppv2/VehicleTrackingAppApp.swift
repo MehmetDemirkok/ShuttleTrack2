@@ -28,6 +28,9 @@ struct ShuttleTrackApp: App {
                         case .driver:
                             DriverDashboardView()
                                 .environmentObject(appViewModel)
+                        case .owner:
+                            AdminPanelView()
+                                .environmentObject(appViewModel)
                         }
                     } else {
                         // Profil yüklenirken basit loading ekranı
