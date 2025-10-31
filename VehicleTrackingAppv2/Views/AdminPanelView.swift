@@ -40,7 +40,9 @@ struct AdminPanelView: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(trailing: Button(action: { viewModel.loadAll() }) { Image(systemName: "arrow.clockwise") })
             .onAppear { viewModel.loadAll() }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var tabTitle: String {

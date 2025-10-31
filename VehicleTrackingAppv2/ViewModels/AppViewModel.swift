@@ -48,7 +48,8 @@ class AppViewModel: ObservableObject {
                     do {
                         let profile = try document.data(as: UserProfile.self)
                         // Profil aktif mi kontrol et
-                        if profile.isActive {
+                        // Owner kullanıcıları ilk girişte otomatik olarak erişime izin ver
+                        if profile.isActive || profile.userType == .owner {
                             self?.currentUserProfile = profile
                             print("✅ User profile yüklendi: \(user.uid)")
                             // Profilden şirket ID'sini belirle
@@ -56,7 +57,8 @@ class AppViewModel: ObservableObject {
                             self?.loadCompanyData(companyId: companyId)
                         } else {
                             print("⚠️ User profile deaktif: \(user.uid)")
-                            self?.signOut()
+                            // Deaktif kullanıcılar için oturumu açık tutup bekleme ekranı gösterebiliriz
+                            self?.currentUserProfile = profile
                         }
                     } catch {
                         print("❌ User profile decode hatası: \(error)")
@@ -64,7 +66,8 @@ class AppViewModel: ObservableObject {
                     }
                 } else {
                     print("⚠️ User profile not found for user: \(user.uid)")
-                    self?.signOut()
+                    // İlk girişte otomatik profil oluştur
+                    self?.createDefaultProfileIfMissing(for: user)
                 }
             }
         }
@@ -121,6 +124,39 @@ class AppViewModel: ObservableObject {
             currentCompany = nil
         } catch {
             print("Sign out error: \(error)")
+        }
+    }
+
+    private func createDefaultProfileIfMissing(for user: User) {
+        let db = Firestore.firestore()
+        let defaultProfile = UserProfile(
+            userId: user.uid,
+            userType: .owner,
+            email: user.email ?? "",
+            fullName: user.displayName ?? (user.email ?? "Kullanıcı"),
+            phone: nil,
+            companyId: user.uid,
+            driverLicenseNumber: nil
+        )
+
+        do {
+            try db.collection("userProfiles").document(user.uid).setData(from: defaultProfile) { [weak self] error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("❌ Default profile create error: \(error)")
+                        self?.signOut()
+                        return
+                    }
+                    print("✅ Default owner profile created for user: \(user.uid)")
+                    self?.currentUserProfile = defaultProfile
+                    self?.loadCompanyData(companyId: defaultProfile.companyId ?? user.uid)
+                }
+            }
+        } catch {
+            DispatchQueue.main.async { [weak self] in
+                print("❌ Encoding default profile error: \(error)")
+                self?.signOut()
+            }
         }
     }
 }
