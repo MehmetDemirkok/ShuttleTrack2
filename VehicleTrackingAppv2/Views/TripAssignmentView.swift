@@ -5,6 +5,7 @@ struct TripAssignmentView: View {
     @StateObject private var viewModel = TripViewModel()
     @StateObject private var exportService = ExportService()
     @State private var showingAddTrip = false
+    @State private var showingAddCargo = false
     @State private var showingTripDetail = false
     @State private var tripForDetail: Trip?
     @State private var showingDeleteAlert = false
@@ -13,10 +14,44 @@ struct TripAssignmentView: View {
     @State private var showingExportOptions = false
     @State private var exportedFileURL: URL?
     @State private var showingShareSheet = false
+    @State private var selectedProject: ProjectType? = nil
+    
+    enum ProjectType {
+        case passenger
+        case cargo
+        
+        var title: String {
+            switch self {
+            case .passenger: return "Yolcu Taşıma Yönetimi"
+            case .cargo: return "Yük Yönetimi"
+            }
+        }
+    }
     
     var body: some View {
         NavigationView {
             VStack {
+                // Proje tipi seçimi
+                if selectedProject == nil {
+                    VStack(spacing: 24) {
+                        Text("İş Yönetimi")
+                            .font(.system(size: 28, weight: .bold))
+                            .padding(.top, 12)
+                        Text("Lütfen bir yönetim türü seçin")
+                            .foregroundColor(.secondary)
+                        HStack(spacing: 16) {
+                            SelectionCard(title: "Yolcu Yönetimi", icon: "person.3.fill", color: .blue) {
+                                selectedProject = .passenger
+                            }
+                            SelectionCard(title: "Yük Yönetimi", icon: "shippingbox.fill", color: .orange) {
+                                selectedProject = .cargo
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
                 // Filtre (Yalnızca yatay butonlar)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -80,6 +115,7 @@ struct TripAssignmentView: View {
                     }
                     .listStyle(PlainListStyle())
                 }
+                }
                 
                 if !viewModel.errorMessage.isEmpty {
                     Text(viewModel.errorMessage)
@@ -88,18 +124,44 @@ struct TripAssignmentView: View {
                         .padding()
                 }
             }
-            .navigationTitle("Transfer Yönetimi")
+            .navigationTitle(selectedProject?.title ?? "İş Yönetimi")
             .navigationBarItems(
-                leading: Button(action: {
-                    showingExportOptions = true
-                }) {
-                    Image(systemName: "square.and.arrow.up")
-                },
-                trailing: Button(action: {
-                    showingAddTrip = true
-                }) {
-                    Image(systemName: "plus")
-                }
+                leading:
+                    Group {
+                        if selectedProject != nil {
+                            HStack(spacing: 16) {
+                                Button(action: { selectedProject = nil }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.left")
+                                        Text("Projeler")
+                                    }
+                                }
+                                Button(action: {
+                                    showingExportOptions = true
+                                }) {
+                                    Image(systemName: "square.and.arrow.up")
+                                }
+                            }
+                        } else {
+                            EmptyView()
+                        }
+                    },
+                trailing:
+                    Group {
+                        if selectedProject != nil {
+                            Button(action: {
+                                if selectedProject == .cargo {
+                                    showingAddCargo = true
+                                } else if selectedProject == .passenger {
+                                    showingAddTrip = true
+                                }
+                            }) {
+                                Image(systemName: "plus")
+                            }
+                        } else {
+                            EmptyView()
+                        }
+                    }
             )
             .onAppear {
                 loadTrips()
@@ -113,6 +175,9 @@ struct TripAssignmentView: View {
             }
             .sheet(isPresented: $showingAddTrip) {
                 AddEditTripView(viewModel: viewModel, appViewModel: appViewModel)
+            }
+            .sheet(isPresented: $showingAddCargo) {
+                AddEditCargoView(viewModel: viewModel, appViewModel: appViewModel)
             }
             .sheet(isPresented: $showingTripDetail) {
                 if let trip = tripForDetail {
@@ -161,8 +226,19 @@ struct TripAssignmentView: View {
     }
     
     private var filteredTrips: [Trip] {
-        guard let status = selectedStatus else { return viewModel.trips }
-        return viewModel.trips.filter { $0.status == status }
+        let byStatus: [Trip] = {
+            guard let status = selectedStatus else { return viewModel.trips }
+            return viewModel.trips.filter { $0.status == status }
+        }()
+        // Kategori filtreleme
+        switch selectedProject {
+        case .passenger:
+            return byStatus.filter { $0.category == nil || $0.category == .passenger }
+        case .cargo:
+            return byStatus.filter { $0.category == .cargo }
+        case .none:
+            return byStatus
+        }
     }
     
     private func loadTrips() {
@@ -692,6 +768,40 @@ struct CapsuleTag: View {
         .padding(.vertical, 4)
         .background(color.opacity(0.12))
         .cornerRadius(999)
+    }
+}
+
+// MARK: - Selection Card (Yolcu / Yük)
+struct SelectionCard: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: icon)
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundColor(color)
+                }
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.primary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 3)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

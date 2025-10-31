@@ -60,8 +60,7 @@ service cloud.firestore {
       
       // Yeni şirket oluşturma - sadece authenticated kullanıcılar
       allow create: if isAuthenticated() && 
-        hasRequiredFields(['name', 'email', 'phone', 'address', 'licenseNumber', 'isActive', 'createdAt', 'updatedAt']) &&
-        request.resource.data.isActive == true;
+        hasRequiredFields(['name', 'email', 'phone', 'address', 'taxNumber', 'isActive', 'createdAt', 'updatedAt']);
       
       // Şirket silme - sadece şirket admin'i kendi şirketini silebilir
       allow delete: if isCompanyAdmin() && 
@@ -78,15 +77,13 @@ service cloud.firestore {
         request.auth.uid == userId &&
         hasRequiredFields(['userId', 'userType', 'email', 'fullName', 'isActive', 'createdAt']) &&
         isValidUserType() &&
-        request.resource.data.userId == userId &&
-        request.resource.data.isActive == true;
+        request.resource.data.userId == userId;
       
       // Profil güncelleme - sadece kendi profili, bazı alanlar değiştirilemez
       allow update: if isAuthenticated() && 
         request.auth.uid == userId &&
         isValidUserType() &&
         request.resource.data.userId == userId &&
-        request.resource.data.isActive == true &&
         // Bu alanlar değiştirilemez
         request.resource.data.createdAt == resource.data.createdAt;
       
@@ -162,7 +159,10 @@ service cloud.firestore {
         hasRequiredFields(['companyId', 'vehicleId', 'driverId', 'tripNumber', 'pickupLocation', 'dropoffLocation', 'scheduledPickupTime', 'scheduledDropoffTime', 'status', 'passengerCount', 'createdAt', 'updatedAt']) &&
         isValidTripStatus() &&
         request.resource.data.companyId == getUserCompanyId() &&
-        request.resource.data.passengerCount > 0 &&
+        (
+          (request.resource.data.category == 'cargo' && request.resource.data.passengerCount >= 0) ||
+          (request.resource.data.category != 'cargo' && request.resource.data.passengerCount > 0)
+        ) &&
         request.resource.data.passengerCount <= 100;
       
       // Şoförler sadece kendi şirketinin transferlerini okuyabilir

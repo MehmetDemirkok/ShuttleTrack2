@@ -8,17 +8,17 @@ struct Company: Identifiable, Codable {
     var email: String
     var phone: String
     var address: String
-    var licenseNumber: String
+    var taxNumber: String
     var isActive: Bool
     var createdAt: Date
     var updatedAt: Date
     
-    init(name: String, email: String, phone: String, address: String, licenseNumber: String) {
+    init(name: String, email: String, phone: String, address: String, taxNumber: String) {
         self.name = name
         self.email = email
         self.phone = phone
         self.address = address
-        self.licenseNumber = licenseNumber
+        self.taxNumber = taxNumber
         self.isActive = true
         self.createdAt = Date()
         self.updatedAt = Date()
