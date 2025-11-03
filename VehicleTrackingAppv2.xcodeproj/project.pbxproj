@@ -11,6 +11,7 @@
 		A81083E22EAFC920003C12B6 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A81083E12EAFC920003C12B6 /* FirebaseFirestore */; };
 		A81083E42EAFC920003C12B6 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = A81083E32EAFC920003C12B6 /* FirebaseStorage */; };
 		A81083E62EAFCA2D003C12B6 /* FirebaseFirestoreSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A81083E52EAFCA2D003C12B6 /* FirebaseFirestoreSwift */; };
+		A8AC945B2EB8CD4C00D09DAA /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = A8AC945A2EB8CD4C00D09DAA /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 			files = (
 				A81083E02EAFC920003C12B6 /* FirebaseAuth in Frameworks */,
 				A81083E22EAFC920003C12B6 /* FirebaseFirestore in Frameworks */,
+				A8AC945B2EB8CD4C00D09DAA /* FirebaseFunctions in Frameworks */,
 				A81083E42EAFC920003C12B6 /* FirebaseStorage in Frameworks */,
 				A81083E62EAFCA2D003C12B6 /* FirebaseFirestoreSwift in Frameworks */,
 			);
@@ -80,6 +82,7 @@
 				A81083E12EAFC920003C12B6 /* FirebaseFirestore */,
 				A81083E32EAFC920003C12B6 /* FirebaseStorage */,
 				A81083E52EAFCA2D003C12B6 /* FirebaseFirestoreSwift */,
+				A8AC945A2EB8CD4C00D09DAA /* FirebaseFunctions */,
 			);
 			productName = VehicleTrackingAppv2;
 			productReference = A80A7ECE2EAFC7870014A1E6 /* VehicleTrackingAppv2.app */;
@@ -384,6 +387,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A81083DE2EAFC920003C12B6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestoreSwift;
+		};
+		A8AC945A2EB8CD4C00D09DAA /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A81083DE2EAFC920003C12B6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

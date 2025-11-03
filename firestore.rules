@@ -74,12 +74,21 @@ service cloud.firestore {
       // Kullanıcılar sadece kendi profillerini okuyabilir
       allow read: if (isAuthenticated() && request.auth.uid == userId) || isOwner();
       
-      // Profil oluşturma - sadece kendi profili
-      allow create: if isAuthenticated() && 
+      // Profil oluşturma
+      // 1) Kullanıcı kendi profilini oluşturabilir
+      // 2) Şirket admin'i, kendi şirketi için sürücü profili oluşturabilir
+      allow create: if (
+        isAuthenticated() &&
         request.auth.uid == userId &&
         hasRequiredFields(['userId', 'userType', 'email', 'fullName', 'isActive', 'createdAt']) &&
         isValidUserType() &&
-        request.resource.data.userId == userId;
+        request.resource.data.userId == userId
+      ) || (
+        isCompanyAdmin() &&
+        request.resource.data.userType == 'driver' &&
+        request.resource.data.companyId == getUserCompanyId() &&
+        hasRequiredFields(['userId', 'userType', 'email', 'fullName', 'isActive', 'createdAt'])
+      ) || isOwner();
       
       // Profil güncelleme - sadece kendi profili, bazı alanlar değiştirilemez
       allow update: if (
