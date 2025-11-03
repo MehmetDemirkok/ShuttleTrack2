@@ -27,8 +27,15 @@ struct ShuttleTrackApp: App {
                             DashboardView()
                                 .environmentObject(appViewModel)
                         case .driver:
-                            DriverDashboardView()
-                                .environmentObject(appViewModel)
+                            Group {
+                                if profile.lastLoginAt == nil {
+                                    DriverPasswordSetupView()
+                                        .environmentObject(appViewModel)
+                                } else {
+                                    DriverDashboardView()
+                                        .environmentObject(appViewModel)
+                                }
+                            }
                         case .owner:
                             AdminPanelView()
                                 .environmentObject(appViewModel)

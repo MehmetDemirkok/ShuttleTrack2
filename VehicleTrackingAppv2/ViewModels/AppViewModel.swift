@@ -49,8 +49,8 @@ class AppViewModel: ObservableObject {
                     do {
                         let profile = try document.data(as: UserProfile.self)
                         // Profil aktif mi kontrol et
-                        // Owner kullanıcıları ilk girişte otomatik olarak erişime izin ver
-                        if profile.isActive || profile.userType == .owner {
+                        // Owner ve CompanyAdmin kullanıcıları onay beklemeden erişebilir
+                        if profile.isActive || profile.userType == .owner || profile.userType == .companyAdmin {
                             self?.currentUserProfile = profile
                             print("✅ User profile yüklendi: \(user.uid)")
                             // Profilden şirket ID'sini belirle
@@ -133,7 +133,7 @@ class AppViewModel: ObservableObject {
 
     private func createDefaultProfileIfMissing(for user: User) {
         let db = Firestore.firestore()
-        let defaultProfile = UserProfile(
+        var defaultProfile = UserProfile(
             userId: user.uid,
             userType: .owner,
             email: user.email ?? "",
@@ -142,9 +142,12 @@ class AppViewModel: ObservableObject {
             companyId: user.uid,
             driverLicenseNumber: nil
         )
+        // Owner için ilk profil varsayılan olarak aktif olmalı
+        defaultProfile.id = user.uid
+        defaultProfile.isActive = true
 
         do {
-            try db.collection("userProfiles").document(user.uid).setData(from: defaultProfile) { [weak self] error in
+            try db.collection("userProfiles").document(user.uid).setData(from: defaultProfile, merge: true) { [weak self] error in
                 DispatchQueue.main.async {
                     if let error = error {
                         print("❌ Default profile create error: \(error)")

@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct AddEditDriverView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -8,6 +9,7 @@ struct AddEditDriverView: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var phoneNumber = ""
+    @State private var email = ""
     @State private var isActive = true
     @State private var isLoading = false
     @State private var errorMessage = ""
@@ -25,6 +27,7 @@ struct AddEditDriverView: View {
             _firstName = State(initialValue: driver.firstName)
             _lastName = State(initialValue: driver.lastName)
             _phoneNumber = State(initialValue: driver.phoneNumber)
+            _email = State(initialValue: driver.email)
             _isActive = State(initialValue: driver.isActive)
         }
     }
@@ -60,6 +63,15 @@ struct AddEditDriverView: View {
                             iconColor: ShuttleTrackTheme.Colors.phoneIcon,
                             text: $phoneNumber,
                             keyboardType: .phonePad
+                        )
+
+                        FormInputField(
+                            title: "E-posta",
+                            placeholder: "ornek@eposta.com",
+                            icon: "envelope.fill",
+                            iconColor: ShuttleTrackTheme.Colors.info,
+                            text: $email,
+                            keyboardType: .emailAddress
                         )
                     }
                     
@@ -151,7 +163,7 @@ struct AddEditDriverView: View {
     }
     
     private var isFormValid: Bool {
-        !firstName.isEmpty && !lastName.isEmpty && !phoneNumber.isEmpty
+        !firstName.isEmpty && !lastName.isEmpty && !phoneNumber.isEmpty && isValidEmail(email)
     }
     
     private func saveDriver() async {
@@ -171,37 +183,66 @@ struct AddEditDriverView: View {
             return
         }
 
-        let newDriver = Driver(
-            id: driver?.id ?? UUID().uuidString,
-            firstName: firstName,
-            lastName: lastName,
-            phoneNumber: normalizedPhone,
-            isActive: isActive,
-            companyId: companyId
-        )
+        // 1) E-posta şirket yetkilisi tarafından kullanılıyor mu?
+        let db = Firestore.firestore()
+        let adminQuery = db.collection("userProfiles")
+            .whereField("email", isEqualTo: email)
+            .whereField("userType", isEqualTo: UserType.companyAdmin.rawValue)
         
-        if isEditing {
-            viewModel.updateDriver(newDriver)
-        } else {
-            // Aynı telefonda aktif kayıt var mı kontrol et
-            let exists = viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
-            if exists {
-                errorMessage = "Bu telefon numarası zaten kayıtlı"
-                isLoading = false
-                return
+        adminQuery.getDocuments { snapshot, err in
+            DispatchQueue.main.async {
+                if let err = err {
+                    self.errorMessage = err.localizedDescription
+                    self.isLoading = false
+                    return
+                }
+                if let docs = snapshot?.documents, !docs.isEmpty {
+                    self.errorMessage = "Bu e‑posta zaten şirket yetkilisi olarak kayıtlı. Şoför eklenemez."
+                    self.isLoading = false
+                    return
+                }
+                
+                // 2) Aynı şirkette aynı e‑posta ile şoför var mı?
+                let emailDup = self.viewModel.drivers.contains { $0.companyId == companyId && $0.email.lowercased() == self.email.lowercased() }
+                if emailDup {
+                    self.errorMessage = "Bu e‑posta ile kayıtlı bir şoför zaten mevcut."
+                    self.isLoading = false
+                    return
+                }
+                // 3) Telefon dup kontrolü (mevcut davranış)
+                let phoneDup = self.viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
+                if phoneDup {
+                    self.errorMessage = "Bu telefon numarası zaten kayıtlı"
+                    self.isLoading = false
+                    return
+                }
+                
+                let newDriver = Driver(
+                    id: self.driver?.id ?? UUID().uuidString,
+                    firstName: self.firstName,
+                    lastName: self.lastName,
+                    phoneNumber: normalizedPhone,
+                    email: self.email,
+                    isActive: self.isActive,
+                    companyId: companyId
+                )
+                
+                if self.isEditing {
+                    self.viewModel.updateDriver(newDriver)
+                } else {
+                    self.viewModel.addDriver(newDriver)
+                }
+                
+                // Kaydetme sonucu bekle (kısa gecikme)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.isLoading = false
+                    if self.viewModel.errorMessage.isEmpty {
+                        self.presentationMode.wrappedValue.dismiss()
+                    } else {
+                        self.errorMessage = self.viewModel.errorMessage
+                    }
+                }
             }
-            viewModel.addDriver(newDriver)
-        }
-        
-        // Simulate save completion
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye
-        
-        isLoading = false
-        
-        if viewModel.errorMessage.isEmpty {
-            presentationMode.wrappedValue.dismiss()
-        } else {
-            errorMessage = viewModel.errorMessage
         }
     }
 
@@ -222,6 +263,12 @@ struct AddEditDriverView: View {
             return "+90" + trimmed
         }
         return nil
+    }
+
+    private func isValidEmail(_ value: String) -> Bool {
+        // Basit e-posta kontrolü (RFC kapsamlı değil, UI validasyonu için yeterli)
+        let pattern = "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$"
+        return value.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 }
 

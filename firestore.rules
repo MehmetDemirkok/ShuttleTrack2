@@ -123,11 +123,19 @@ service cloud.firestore {
       // Okuma: admin kendi şirketinin şoförlerini okuyabilir
       allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
-      // Yazma: sadece admin
-      allow create, update, delete: if (isCompanyAdmin() && 
+      // Oluşturma: sadece admin
+      allow create: if (isCompanyAdmin() &&
         belongsToUserCompanyRequest(request) &&
-        hasRequiredFields(['firstName', 'lastName', 'phoneNumber', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
+        hasRequiredFields(['firstName', 'lastName', 'phoneNumber', 'email', 'isActive', 'companyId', 'createdAt', 'updatedAt']) &&
         request.resource.data.companyId == getUserCompanyId()) || isOwner();
+
+      // Güncelleme: sadece admin, şirket aynı kalmalı
+      allow update: if (isCompanyAdmin() &&
+        belongsToUserCompany(resource) &&
+        request.resource.data.companyId == resource.data.companyId) || isOwner();
+
+      // Silme: sadece admin, kendi şirketine ait sürücüyü silebilir
+      allow delete: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
       // Şoförler sadece kendi bilgilerini okuyabilir (authUserId ile eşleşen)
       allow read: if isDriver() && 

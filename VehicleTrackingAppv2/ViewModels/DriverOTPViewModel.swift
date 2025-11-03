@@ -150,17 +150,17 @@ class DriverOTPViewModel: ObservableObject {
                     driverLicenseNumber: nil
                 )
                 profile.id = profile.userId
+                // Aktif sürücü kaydına dayanarak profil aktif işaretlenir
+                profile.isActive = true
                 do {
-                    try self?.db.collection("userProfiles").document(profile.userId).setData(from: profile) { error in
+                    try self?.db.collection("userProfiles").document(profile.userId).setData(from: profile, merge: true) { error in
                         DispatchQueue.main.async {
                             self?.isLoading = false
                             if let error = error {
                                 self?.errorMessage = error.localizedDescription
                                 self?.signOutIfNeeded()
                             } else {
-                                // Varsayılan profil pasif -> onay bekliyor
-                                self?.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
-                                self?.signOutIfNeeded()
+                                self?.infoMessage = "Giriş başarılı"
                             }
                         }
                     }
