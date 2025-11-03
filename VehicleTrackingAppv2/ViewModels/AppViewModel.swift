@@ -10,6 +10,7 @@ class AppViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var currentCompany: Company?
     @Published var currentUserProfile: UserProfile?
+    @Published var authMessage: String = ""
     
     private var cancellables = Set<AnyCancellable>()
     private var companyCache: [String: Company] = [:]
@@ -56,9 +57,12 @@ class AppViewModel: ObservableObject {
                             let companyId = profile.companyId ?? user.uid
                             self?.loadCompanyData(companyId: companyId)
                         } else {
-                            print("⚠️ User profile deaktif: \(user.uid)")
-                            // Deaktif kullanıcılar için oturumu açık tutup bekleme ekranı gösterebiliriz
-                            self?.currentUserProfile = profile
+                            print("⚠️ User profile deaktif: \(user.uid) — giriş engellenecek")
+                            // Deaktif kullanıcıları tamamen çıkışa yönlendir
+                            self?.authMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                            self?.currentUserProfile = nil
+                            self?.currentCompany = nil
+                            self?.signOut()
                         }
                     } catch {
                         print("❌ User profile decode hatası: \(error)")

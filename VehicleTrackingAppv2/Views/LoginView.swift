@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
+import FirebaseFirestoreSwift
 
 struct LoginView: View {
     @EnvironmentObject var appViewModel: AppViewModel
@@ -9,6 +11,7 @@ struct LoginView: View {
     @State private var errorMessage = ""
     @State private var showingSignUp = false
     @State private var showingDriverOTP = false
+    @State private var showAlert = false
     
     var body: some View {
         NavigationView {
@@ -115,7 +118,27 @@ struct LoginView: View {
             DriverOTPLoginView()
                 .environmentObject(appViewModel)
         }
+        .onReceive(appViewModel.$authMessage) { message in
+            if !message.isEmpty {
+                self.errorMessage = message
+                self.showAlert = true
+                appViewModel.authMessage = ""
+            }
+        }
+        .onAppear {
+            // Sign-out sonrası AppViewModel.authMessage zaten dolu olabilir; giriş ekranı açılır açılmaz göster
+            if !appViewModel.authMessage.isEmpty {
+                self.errorMessage = appViewModel.authMessage
+                self.showAlert = true
+                appViewModel.authMessage = ""
+            }
+        }
         .ignoresSafeArea(.keyboard)
+        .alert("Bilgi", isPresented: $showAlert) {
+            Button("Tamam") { showAlert = false }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
     private func signIn() {
@@ -128,6 +151,35 @@ struct LoginView: View {
                 isLoading = false
                 if let error = error {
                     errorMessage = error.localizedDescription
+                } else if let user = result?.user {
+                    // Profili kontrol et: aktif değilse çıkış yap ve bilgilendir
+                    let db = Firestore.firestore()
+                    db.collection("userProfiles").document(user.uid).getDocument { snapshot, err in
+                        DispatchQueue.main.async {
+                            if let err = err {
+                                // Sessizce geç; AppViewModel yüklemeye çalışacak
+                                print("⚠️ Profil kontrol hatası: \(err.localizedDescription)")
+                                return
+                            }
+                            if let snapshot = snapshot, snapshot.exists {
+                                do {
+                                    let profile = try snapshot.data(as: UserProfile.self)
+                                    if !(profile.userType == .owner) && profile.isActive == false {
+                                        do { try Auth.auth().signOut() } catch { }
+                                        self.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                                        self.showAlert = true
+                                    }
+                                } catch {
+                                    // Decode hatası durumunda bir şey yapma
+                                }
+                            } else {
+                                // Profil yoksa büyük ihtimalle onay süreci bekleniyor
+                                do { try Auth.auth().signOut() } catch { }
+                                self.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                                self.showAlert = true
+                            }
+                        }
+                    }
                 }
             }
         }

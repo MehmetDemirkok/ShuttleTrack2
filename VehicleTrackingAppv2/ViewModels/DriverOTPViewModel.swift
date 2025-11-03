@@ -119,10 +119,25 @@ class DriverOTPViewModel: ObservableObject {
         db.collection("userProfiles").document(userId).getDocument { [weak self] doc, _ in
             DispatchQueue.main.async {
                 if let doc = doc, doc.exists {
-                    // Profil var, AppViewModel zaten state'i güncelleyecek
-                    self?.isLoading = false
-                    self?.infoMessage = "Giriş başarılı"
-                    return
+                    // Profil var -> aktif mi kontrol et
+                    do {
+                        let profile = try doc.data(as: UserProfile.self)
+                        if !(profile.userType == .owner) && profile.isActive == false {
+                            self?.isLoading = false
+                            self?.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                            self?.signOutIfNeeded()
+                            return
+                        }
+                        self?.isLoading = false
+                        self?.infoMessage = "Giriş başarılı"
+                        return
+                    } catch {
+                        // decode sorunu -> güvenli tarafta kal, onay bekliyor mesajı ver
+                        self?.isLoading = false
+                        self?.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                        self?.signOutIfNeeded()
+                        return
+                    }
                 }
                 // Yeni profil oluştur
                 var profile = UserProfile(
@@ -143,8 +158,9 @@ class DriverOTPViewModel: ObservableObject {
                                 self?.errorMessage = error.localizedDescription
                                 self?.signOutIfNeeded()
                             } else {
-                                self?.infoMessage = "Profil oluşturuldu"
-                                // AppViewModel auth listener'ı profili ve şirketi yükleyecek
+                                // Varsayılan profil pasif -> onay bekliyor
+                                self?.errorMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                                self?.signOutIfNeeded()
                             }
                         }
                     }
