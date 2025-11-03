@@ -207,6 +207,7 @@ struct DriverDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
+    @State private var showingAssignSheet = false
     
     let driver: Driver
     let viewModel: DriverViewModel
@@ -359,6 +360,29 @@ struct DriverDetailView: View {
                             .foregroundColor(.primary)
                         
                         VStack(spacing: 12) {
+                            // Araç Ata
+                            Button(action: {
+                                showingAssignSheet = true
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "car.2")
+                                        .font(.title3)
+                                        .foregroundColor(.white)
+                                    Text("Araç Ata")
+                                        .font(.headline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                                .padding(.vertical, 16)
+                                .padding(.horizontal, 20)
+                                .background(Color.purple)
+                                .cornerRadius(12)
+                            }
+                            
                             // Düzenle Butonu
                             Button(action: {
                                 showingEditSheet = true
@@ -459,6 +483,9 @@ struct DriverDetailView: View {
                 appViewModel: appViewModel
             )
         }
+        .sheet(isPresented: $showingAssignSheet) {
+            AssignVehicleSheet(driver: driver, driverViewModel: viewModel, appViewModel: appViewModel)
+        }
         .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
             Button("İptal", role: .cancel) { }
             Button("Sil", role: .destructive) {
@@ -502,6 +529,95 @@ struct DriverDetailRow: View {
         .padding(.horizontal, 16)
         .background(Color(.systemGray6))
         .cornerRadius(12)
+    }
+}
+
+// MARK: - Assign Vehicle Sheet
+
+struct AssignVehicleSheet: View {
+    @Environment(\.presentationMode) var presentationMode
+    let driver: Driver
+    let driverViewModel: DriverViewModel
+    let appViewModel: AppViewModel
+    
+    @StateObject private var vehicleViewModel = VehicleViewModel()
+    @State private var selectedVehicleId: String? = nil
+    @State private var isSaving = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                if vehicleViewModel.isLoading {
+                    HStack { ProgressView(); Text("Araçlar yükleniyor...") }
+                        .padding()
+                } else if !errorMessage.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red)
+                        Text(errorMessage).foregroundColor(.red).font(.caption)
+                    }
+                    .padding(.horizontal)
+                }
+                
+                List {
+                    Section(header: Text("Araç Seç")) {
+                        Button {
+                            selectedVehicleId = nil
+                        } label: {
+                            HStack {
+                                Image(systemName: selectedVehicleId == nil ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(.blue)
+                                Text("Araç Atama")
+                                Spacer()
+                                Text("(Kaldır)").foregroundColor(.secondary).font(.caption)
+                            }
+                        }
+                        ForEach(vehicleViewModel.vehicles) { v in
+                            Button {
+                                selectedVehicleId = v.id
+                            } label: {
+                                HStack {
+                                    Image(systemName: selectedVehicleId == v.id ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor(.blue)
+                                    VStack(alignment: .leading) {
+                                        Text(v.displayName).font(.body)
+                                        Text("Kapasite: \(v.capacity) • \(v.color)")
+                                            .font(.caption).foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .listStyle(InsetGroupedListStyle())
+            }
+            .navigationTitle("Araç Ata")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Kapat") { presentationMode.wrappedValue.dismiss() },
+                trailing: Button(isSaving ? "Kaydediliyor" : "Kaydet") {
+                    save()
+                }
+                .disabled(isSaving)
+            )
+            .onAppear { load() }
+        }
+    }
+    
+    private func load() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        selectedVehicleId = driver.assignedVehicleId
+        vehicleViewModel.fetchVehicles(for: companyId)
+    }
+    
+    private func save() {
+        isSaving = true
+        errorMessage = ""
+        driverViewModel.assignVehicleToDriver(driver, vehicleId: selectedVehicleId)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            isSaving = false
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 }
 

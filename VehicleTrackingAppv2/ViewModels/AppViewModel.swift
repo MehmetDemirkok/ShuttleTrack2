@@ -39,6 +39,15 @@ class AppViewModel: ObservableObject {
         // Önce profil, ardından profile göre şirket yükle
         loadUserProfile(for: user)
     }
+
+    // Sürücü hızlı giriş akışında profil oluşturulduktan sonra UI'yı ilerletmek için
+    func reloadAfterDriverProfileCreated(_ profile: UserProfile) {
+        DispatchQueue.main.async {
+            self.currentUserProfile = profile
+            let companyId = profile.companyId ?? profile.userId
+            self.loadCompanyData(companyId: companyId)
+        }
+    }
     
     private func loadUserProfile(for user: User) {
         let db = Firestore.firestore()
@@ -70,7 +79,12 @@ class AppViewModel: ObservableObject {
                     }
                 } else {
                     print("⚠️ User profile not found for user: \(user.uid)")
-                    // İlk girişte otomatik profil oluştur
+                    // Anonim oturumlar için varsayılan owner profili OLUŞTURMA.
+                    // Sürücü hızlı giriş akışı profilini kendisi oluşturur.
+                    if user.isAnonymous {
+                        return
+                    }
+                    // Diğer kullanıcı tipleri için ilk girişte otomatik profil oluştur
                     self?.createDefaultProfileIfMissing(for: user)
                 }
             }

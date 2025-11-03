@@ -131,6 +131,11 @@ service cloud.firestore {
     match /drivers/{driverId} {
       // Okuma: admin kendi şirketinin şoförlerini okuyabilir
       allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
+
+      // Hızlı sürücü girişi için: kimliği doğrulanmış (anonim dahil) kullanıcılar
+      // aktif sürücü kayıtlarını okuyabilir. Bu, sadece isActive==true kayıtların
+      // okunmasına izin vererek şirket dışına veri sızmasını sınırlar.
+      allow read: if isAuthenticated() && resource.data.isActive == true;
       
       // Oluşturma: sadece admin
       allow create: if (isCompanyAdmin() &&

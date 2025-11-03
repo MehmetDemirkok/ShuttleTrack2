@@ -207,13 +207,23 @@ struct AddEditDriverView: View {
         }
 
         // Cloud Function ile sürücü için Auth kullanıcısı ve profil oluştur
+        // Hata durumunda işlemi engellemeyip sürücüyü yalnızca Firestore'a kaydediyoruz
         var createdAuthUid: String? = nil
         do {
             createdAuthUid = try await createDriverAuthUser(email: email, fullName: "\(firstName) \(lastName)", companyId: companyId)
         } catch {
-            self.errorMessage = error.localizedDescription
-            self.isLoading = false
-            return
+            let nsError = error as NSError
+            var friendly = "Bilinmeyen hata"
+            if nsError.domain == FunctionsErrorDomain {
+                friendly = "Şoför için giriş hesabı oluşturulamadı. Lütfen Cloud Functions dağıtımını kontrol edin."
+            } else if nsError.domain == NSURLErrorDomain {
+                friendly = "Ağ/bağlantı veya Functions erişim hatası. İnternet ve proje ayarlarını kontrol edin."
+            } else {
+                friendly = error.localizedDescription
+            }
+            print("❌ createDriverUser hata: \(friendly) [domain=\(nsError.domain) code=\(nsError.code)]")
+            // Kullanıcıya uyarıyı göster ama kaydı sürdür
+            self.errorMessage = friendly
         }
         
         let newDriver = Driver(
