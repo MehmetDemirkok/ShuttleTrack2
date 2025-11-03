@@ -8,6 +8,7 @@
 import SwiftUI
 import FirebaseCore
 import UIKit
+import UserNotifications
 
 @main
 struct ShuttleTrackApp: App {
@@ -26,7 +27,17 @@ struct ShuttleTrackApp: App {
                             DashboardView()
                                 .environmentObject(appViewModel)
                         case .driver:
-                            DriverDashboardView()
+                            Group {
+                                if profile.lastLoginAt == nil {
+                                    DriverPasswordSetupView()
+                                        .environmentObject(appViewModel)
+                                } else {
+                                    DriverDashboardView()
+                                        .environmentObject(appViewModel)
+                                }
+                            }
+                        case .owner:
+                            AdminPanelView()
                                 .environmentObject(appViewModel)
                         }
                     } else {
@@ -50,6 +61,7 @@ struct ShuttleTrackApp: App {
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
+        NotificationService.shared.requestAuthorizationIfNeeded(completion: nil)
         return true
     }
 }

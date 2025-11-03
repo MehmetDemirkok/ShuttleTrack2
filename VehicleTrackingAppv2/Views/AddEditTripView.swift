@@ -502,6 +502,8 @@ struct AddEditTripView: View {
             scheduledDropoffTime: scheduledDropoffTime,
             passengerCount: passengerCount
         )
+        // Yolcu taşıma formu
+        newTrip.category = .passenger
         
         // Opsiyonel alanları ekle
         if !notes.isEmpty {

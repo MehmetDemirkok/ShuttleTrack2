@@ -6,6 +6,7 @@ struct Driver: Identifiable, Codable {
     var firstName: String
     var lastName: String
     var phoneNumber: String
+    var email: String
     var authUserId: String?
     var isActive: Bool
     var assignedVehicleId: String?
@@ -17,12 +18,14 @@ struct Driver: Identifiable, Codable {
          firstName: String,
          lastName: String,
          phoneNumber: String,
+         email: String,
          isActive: Bool = true,
          companyId: String) {
         self.id = id
         self.firstName = firstName
         self.lastName = lastName
         self.phoneNumber = phoneNumber
+        self.email = email
         self.isActive = isActive
         self.authUserId = nil
         self.assignedVehicleId = nil

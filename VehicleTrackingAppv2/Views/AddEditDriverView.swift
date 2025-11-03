@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseFirestore
+import FirebaseFunctions
 
 struct AddEditDriverView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -8,6 +10,7 @@ struct AddEditDriverView: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var phoneNumber = ""
+    @State private var email = ""
     @State private var isActive = true
     @State private var isLoading = false
     @State private var errorMessage = ""
@@ -25,6 +28,7 @@ struct AddEditDriverView: View {
             _firstName = State(initialValue: driver.firstName)
             _lastName = State(initialValue: driver.lastName)
             _phoneNumber = State(initialValue: driver.phoneNumber)
+            _email = State(initialValue: driver.email)
             _isActive = State(initialValue: driver.isActive)
         }
     }
@@ -60,6 +64,15 @@ struct AddEditDriverView: View {
                             iconColor: ShuttleTrackTheme.Colors.phoneIcon,
                             text: $phoneNumber,
                             keyboardType: .phonePad
+                        )
+
+                        FormInputField(
+                            title: "E-posta",
+                            placeholder: "ornek@eposta.com",
+                            icon: "envelope.fill",
+                            iconColor: ShuttleTrackTheme.Colors.info,
+                            text: $email,
+                            keyboardType: .emailAddress
                         )
                     }
                     
@@ -151,7 +164,7 @@ struct AddEditDriverView: View {
     }
     
     private var isFormValid: Bool {
-        !firstName.isEmpty && !lastName.isEmpty && !phoneNumber.isEmpty
+        !firstName.isEmpty && !lastName.isEmpty && !phoneNumber.isEmpty && isValidEmail(email)
     }
     
     private func saveDriver() async {
@@ -171,37 +184,107 @@ struct AddEditDriverView: View {
             return
         }
 
+        // 1) E-posta şirket yetkilisinin kendi e-postası mı? (Aynı mail ile şoför eklenemez)
+        if let adminEmail = appViewModel.currentUserProfile?.email, adminEmail.lowercased() == email.lowercased() {
+            errorMessage = "Bu e‑posta şirket yetkilisine ait. Şoför eklenemez."
+            isLoading = false
+            return
+        }
+
+        // 2) Aynı şirkette aynı e‑posta ile şoför var mı?
+        let emailDup = viewModel.drivers.contains { $0.companyId == companyId && $0.email.lowercased() == email.lowercased() }
+        if emailDup {
+            errorMessage = "Bu e‑posta ile kayıtlı bir şoför zaten mevcut."
+            isLoading = false
+            return
+        }
+        // 3) Telefon dup kontrolü (mevcut davranış)
+        let phoneDup = viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
+        if phoneDup {
+            errorMessage = "Bu telefon numarası zaten kayıtlı"
+            isLoading = false
+            return
+        }
+
+        // Cloud Function ile sürücü için Auth kullanıcısı ve profil oluştur
+        // Hata durumunda işlemi engellemeyip sürücüyü yalnızca Firestore'a kaydediyoruz
+        var createdAuthUid: String? = nil
+        do {
+            createdAuthUid = try await createDriverAuthUser(email: email, fullName: "\(firstName) \(lastName)", companyId: companyId)
+        } catch {
+            let nsError = error as NSError
+            var friendly = "Bilinmeyen hata"
+            if nsError.domain == FunctionsErrorDomain {
+                friendly = "Şoför için giriş hesabı oluşturulamadı. Lütfen Cloud Functions dağıtımını kontrol edin."
+            } else if nsError.domain == NSURLErrorDomain {
+                friendly = "Ağ/bağlantı veya Functions erişim hatası. İnternet ve proje ayarlarını kontrol edin."
+            } else {
+                friendly = error.localizedDescription
+            }
+            print("❌ createDriverUser hata: \(friendly) [domain=\(nsError.domain) code=\(nsError.code)]")
+            // Kullanıcıya uyarıyı göster ama kaydı sürdür
+            self.errorMessage = friendly
+        }
+        
         let newDriver = Driver(
             id: driver?.id ?? UUID().uuidString,
             firstName: firstName,
             lastName: lastName,
             phoneNumber: normalizedPhone,
+            email: email,
             isActive: isActive,
             companyId: companyId
         )
-        
+        // Auth UID'yi driver kaydına iliştir
+        var driverWithAuth = newDriver
+        driverWithAuth.authUserId = createdAuthUid
+
         if isEditing {
-            viewModel.updateDriver(newDriver)
+            viewModel.updateDriver(driverWithAuth)
         } else {
-            // Aynı telefonda aktif kayıt var mı kontrol et
-            let exists = viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
-            if exists {
-                errorMessage = "Bu telefon numarası zaten kayıtlı"
-                isLoading = false
-                return
-            }
-            viewModel.addDriver(newDriver)
+            viewModel.addDriver(driverWithAuth)
         }
-        
-        // Simulate save completion
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 saniye
-        
-        isLoading = false
-        
-        if viewModel.errorMessage.isEmpty {
-            presentationMode.wrappedValue.dismiss()
-        } else {
-            errorMessage = viewModel.errorMessage
+
+        // Kaydetme sonucu bekle (kısa gecikme)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.isLoading = false
+            if self.viewModel.errorMessage.isEmpty {
+                self.presentationMode.wrappedValue.dismiss()
+            } else {
+                self.errorMessage = self.viewModel.errorMessage
+            }
+        }
+    }
+
+    // Cloud Function: createDriverUser(email, fullName, companyId) -> { uid }
+    private func createDriverAuthUser(email: String, fullName: String, companyId: String) async throws -> String {
+        // Bölgeyi kendi Function dağıtım bölgenize göre ayarlayın (varsayılan: us-central1)
+        let functions = Functions.functions(region: "us-central1")
+        struct CFError: Error { let message: String }
+        return try await withCheckedThrowingContinuation { continuation in
+            let data: [String: Any] = [
+                "email": email,
+                "fullName": fullName,
+                "companyId": companyId,
+                "defaultPassword": "000000"
+            ]
+            functions.httpsCallable("createDriverUser").call(data) { result, error in
+                if let error = error {
+                    // Daha açıklayıcı hata mesajları
+                    let nsError = error as NSError
+                    if nsError.domain == FunctionsErrorDomain, let code = FunctionsErrorCode(rawValue: nsError.code), code == .notFound {
+                        continuation.resume(throwing: CFError(message: "Backend fonksiyonu bulunamadı. Lütfen 'createDriverUser' fonksiyonunu deploy edin ve bölgeyi doğrulayın."))
+                    } else {
+                        continuation.resume(throwing: error)
+                    }
+                    return
+                }
+                guard let dict = result?.data as? [String: Any], let uid = dict["uid"] as? String else {
+                    continuation.resume(throwing: CFError(message: "Geçersiz yanıt"))
+                    return
+                }
+                continuation.resume(returning: uid)
+            }
         }
     }
 
@@ -222,6 +305,12 @@ struct AddEditDriverView: View {
             return "+90" + trimmed
         }
         return nil
+    }
+
+    private func isValidEmail(_ value: String) -> Bool {
+        // Basit e-posta kontrolü (RFC kapsamlı değil, UI validasyonu için yeterli)
+        let pattern = "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$"
+        return value.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 }
 

@@ -10,6 +10,8 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
     var vehicleId: String
     var driverId: String
     var tripNumber: String
+    // Yolcu/Yük kategorisi (eski kayıtlar için nil -> yolcu kabul edilir)
+    var category: TripCategory?
     var pickupLocation: TripLocation
     var dropoffLocation: TripLocation
     var scheduledPickupTime: Date
@@ -22,6 +24,18 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
     var fare: Double?
     var createdAt: Date
     var updatedAt: Date
+    
+    enum TripCategory: String, CaseIterable, Codable {
+        case passenger
+        case cargo
+        
+        var titleText: String {
+            switch self {
+            case .passenger: return "Yolcu"
+            case .cargo: return "Yük"
+            }
+        }
+    }
     
     enum TripStatus: String, CaseIterable, Codable {
         case scheduled = "scheduled"
@@ -53,6 +67,7 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
         self.vehicleId = vehicleId
         self.driverId = driverId
         self.tripNumber = tripNumber
+        self.category = .passenger
         self.pickupLocation = pickupLocation
         self.dropoffLocation = dropoffLocation
         self.scheduledPickupTime = scheduledPickupTime

@@ -496,12 +496,15 @@ struct EditProfileView: View {
                         .textFieldStyle(ShuttleTrackTextFieldStyle())
                         .keyboardType(.phonePad)
                     
-                    Picker("Kullanıcı Tipi", selection: $selectedUserType) {
-                        ForEach(UserType.allCases, id: \.self) { userType in
-                            Text(userType.displayName).tag(userType)
+                    // Sürücü panelinde kullanıcı tipi değiştirilemez
+                    if appViewModel.currentUserProfile?.userType != .driver {
+                        Picker("Kullanıcı Tipi", selection: $selectedUserType) {
+                            ForEach(UserType.allCases, id: \.self) { userType in
+                                Text(userType.displayName).tag(userType)
+                            }
                         }
+                        .pickerStyle(MenuPickerStyle())
                     }
-                    .pickerStyle(MenuPickerStyle())
                 }
                 
                 Section(header: Text("Şirket Bilgileri")) {
@@ -611,10 +614,11 @@ struct EditProfileView: View {
     }
     
     private func saveProfile() {
+        let finalUserType: UserType = (appViewModel.currentUserProfile?.userType == .driver) ? .driver : selectedUserType
         profileViewModel.updateProfile(
             fullName: fullName,
             phone: phone.isEmpty ? nil : phone,
-            userType: selectedUserType
+            userType: finalUserType
         )
         
         // Close the view after a short delay to show success message

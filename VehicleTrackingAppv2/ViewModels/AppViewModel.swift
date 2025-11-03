@@ -10,6 +10,7 @@ class AppViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var currentCompany: Company?
     @Published var currentUserProfile: UserProfile?
+    @Published var authMessage: String = ""
     
     private var cancellables = Set<AnyCancellable>()
     private var companyCache: [String: Company] = [:]
@@ -38,6 +39,15 @@ class AppViewModel: ObservableObject {
         // Önce profil, ardından profile göre şirket yükle
         loadUserProfile(for: user)
     }
+
+    // Sürücü hızlı giriş akışında profil oluşturulduktan sonra UI'yı ilerletmek için
+    func reloadAfterDriverProfileCreated(_ profile: UserProfile) {
+        DispatchQueue.main.async {
+            self.currentUserProfile = profile
+            let companyId = profile.companyId ?? profile.userId
+            self.loadCompanyData(companyId: companyId)
+        }
+    }
     
     private func loadUserProfile(for user: User) {
         let db = Firestore.firestore()
@@ -48,14 +58,19 @@ class AppViewModel: ObservableObject {
                     do {
                         let profile = try document.data(as: UserProfile.self)
                         // Profil aktif mi kontrol et
-                        if profile.isActive {
+                        // Owner ve CompanyAdmin kullanıcıları onay beklemeden erişebilir
+                        if profile.isActive || profile.userType == .owner || profile.userType == .companyAdmin {
                             self?.currentUserProfile = profile
                             print("✅ User profile yüklendi: \(user.uid)")
                             // Profilden şirket ID'sini belirle
                             let companyId = profile.companyId ?? user.uid
                             self?.loadCompanyData(companyId: companyId)
                         } else {
-                            print("⚠️ User profile deaktif: \(user.uid)")
+                            print("⚠️ User profile deaktif: \(user.uid) — giriş engellenecek")
+                            // Deaktif kullanıcıları tamamen çıkışa yönlendir
+                            self?.authMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                            self?.currentUserProfile = nil
+                            self?.currentCompany = nil
                             self?.signOut()
                         }
                     } catch {
@@ -64,7 +79,13 @@ class AppViewModel: ObservableObject {
                     }
                 } else {
                     print("⚠️ User profile not found for user: \(user.uid)")
-                    self?.signOut()
+                    // Anonim oturumlar için varsayılan owner profili OLUŞTURMA.
+                    // Sürücü hızlı giriş akışı profilini kendisi oluşturur.
+                    if user.isAnonymous {
+                        return
+                    }
+                    // Diğer kullanıcı tipleri için ilk girişte otomatik profil oluştur
+                    self?.createDefaultProfileIfMissing(for: user)
                 }
             }
         }
@@ -121,6 +142,42 @@ class AppViewModel: ObservableObject {
             currentCompany = nil
         } catch {
             print("Sign out error: \(error)")
+        }
+    }
+
+    private func createDefaultProfileIfMissing(for user: User) {
+        let db = Firestore.firestore()
+        var defaultProfile = UserProfile(
+            userId: user.uid,
+            userType: .owner,
+            email: user.email ?? "",
+            fullName: user.displayName ?? (user.email ?? "Kullanıcı"),
+            phone: nil,
+            companyId: user.uid,
+            driverLicenseNumber: nil
+        )
+        // Owner için ilk profil varsayılan olarak aktif olmalı
+        defaultProfile.id = user.uid
+        defaultProfile.isActive = true
+
+        do {
+            try db.collection("userProfiles").document(user.uid).setData(from: defaultProfile, merge: true) { [weak self] error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        print("❌ Default profile create error: \(error)")
+                        self?.signOut()
+                        return
+                    }
+                    print("✅ Default owner profile created for user: \(user.uid)")
+                    self?.currentUserProfile = defaultProfile
+                    self?.loadCompanyData(companyId: defaultProfile.companyId ?? user.uid)
+                }
+            }
+        } catch {
+            DispatchQueue.main.async { [weak self] in
+                print("❌ Encoding default profile error: \(error)")
+                self?.signOut()
+            }
         }
     }
 }

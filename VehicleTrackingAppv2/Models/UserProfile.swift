@@ -10,7 +10,7 @@ struct UserProfile: Codable, Identifiable {
     var phone: String?
     var companyId: String?
     var driverLicenseNumber: String?
-    let isActive: Bool
+    var isActive: Bool
     let createdAt: Date
     var updatedAt: Date?
     var lastLoginAt: Date?
@@ -23,7 +23,7 @@ struct UserProfile: Codable, Identifiable {
         self.phone = phone
         self.companyId = companyId
         self.driverLicenseNumber = driverLicenseNumber
-        self.isActive = true
+        self.isActive = false
         self.createdAt = Date()
         self.updatedAt = nil
         self.lastLoginAt = nil

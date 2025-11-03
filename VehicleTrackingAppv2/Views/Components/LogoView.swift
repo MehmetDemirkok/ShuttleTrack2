@@ -78,7 +78,7 @@ struct LogoView: View {
                         .font(.system(size: size * 0.2, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                     
-                    Text("Transfer Takip Programı")
+                    Text("Araç Yönetim Sistemleri")
                         .font(.system(size: size * 0.12, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
                 }

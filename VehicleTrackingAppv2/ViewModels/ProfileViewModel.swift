@@ -39,11 +39,13 @@ class ProfileViewModel: ObservableObject {
                         }
                     } catch {
                         // Eğer veri formatı uyumsuzsa, varsayılan profil oluştur
-                        print("Profil verisi uyumsuz, yeni profil oluşturuluyor: \(error)")
-                        await MainActor.run {
-                            self.isLoading = false
-                            self.createUserProfile()
-                        }
+                    print("Profil verisi uyumsuz, mevcut veriyi koruyarak profil düzeltmesi denenecek: \(error)")
+                    await MainActor.run {
+                        self.isLoading = false
+                        // Otomatik yeni profil oluşturmak mevcut alanları ezebilir; kullanıcı aksiyonuna bırakılabilir
+                        // İstenen davranış: sessiz kal ve kullanıcıya bilgilendirme sağla
+                        self.errorMessage = "Profil verisi uyumsuz. Lütfen profil sayfasından bilgilerinizi güncelleyiniz."
+                    }
                     }
                 } else {
                     // Profil bulunamadı, yeni profil oluştur
@@ -182,10 +184,11 @@ class ProfileViewModel: ObservableObject {
             driverLicenseNumber: nil
         )
         newProfile.id = newProfile.userId
+        // Şirket yetkilisi kayıtları onay süreci gerektirdiğinden varsayılan pasif kalır
         
         Task {
             do {
-                try db.collection("userProfiles").document(newProfile.userId).setData(from: newProfile)
+                try db.collection("userProfiles").document(newProfile.userId).setData(from: newProfile, merge: true)
                 DispatchQueue.main.async {
                     self.userProfile = newProfile
                     self.isLoading = false

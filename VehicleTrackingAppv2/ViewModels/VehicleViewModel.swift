@@ -40,7 +40,15 @@ class VehicleViewModel: ObservableObject {
                         try? document.data(as: Vehicle.self)
                     }
                     // Client-side sorting to avoid index requirement
-                    self?.vehicles = vehicles.sorted { $0.createdAt > $1.createdAt }
+                    let sorted = vehicles.sorted { $0.createdAt > $1.createdAt }
+                    self?.vehicles = sorted
+                    // Bildirim planlama (izin verilmişse)
+                    NotificationService.shared.requestAuthorizationIfNeeded { granted in
+                        guard granted else { return }
+                        for vehicle in sorted {
+                            NotificationService.shared.scheduleVehicleExpiryNotifications(for: vehicle)
+                        }
+                    }
                 }
             }
     }

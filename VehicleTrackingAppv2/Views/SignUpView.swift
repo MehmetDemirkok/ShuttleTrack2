@@ -11,7 +11,7 @@ struct SignUpView: View {
     @State private var phone = ""
     @State private var selectedUserType: UserType = .companyAdmin
     @State private var address = ""
-    @State private var licenseNumber = ""
+    @State private var taxNumber = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -65,7 +65,7 @@ struct SignUpView: View {
                             TextField("Adres", text: $address)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                             
-                            TextField("Lisans Numarası", text: $licenseNumber)
+                            TextField("Vergi Numarası", text: $taxNumber)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
                     }
@@ -138,7 +138,7 @@ struct SignUpView: View {
         return basicValidation &&
         !companyName.isEmpty &&
         !address.isEmpty &&
-        !licenseNumber.isEmpty
+        !taxNumber.isEmpty
     }
     
     private func signUp() {
@@ -162,16 +162,18 @@ struct SignUpView: View {
         let db = Firestore.firestore()
         
         // Şirket verilerini kaydet (sadece şirket yetkilisi için)
-        let company = Company(
+        var company = Company(
             name: companyName,
             email: email,
             phone: phone,
             address: address,
-            licenseNumber: licenseNumber
+            taxNumber: taxNumber
         )
+        // Şirket başlangıçta pasif; yönetici onayı sonrası aktif edilir
+        company.isActive = false
         
         // Kullanıcı profilini oluştur
-        let userProfile = UserProfile(
+        var userProfile = UserProfile(
             userId: user.uid,
             userType: .companyAdmin,
             email: email,
@@ -180,6 +182,8 @@ struct SignUpView: View {
             companyId: user.uid,
             driverLicenseNumber: nil
         )
+        // Yönetici onayı gereksinimi: başlangıçta pasif
+        userProfile.isActive = false
         
         // Firebase'e kaydet
         Task {
