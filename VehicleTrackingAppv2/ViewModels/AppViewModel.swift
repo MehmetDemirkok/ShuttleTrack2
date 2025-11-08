@@ -1,10 +1,11 @@
 import SwiftUI
-import FirebaseAuth
+@preconcurrency import FirebaseAuth
 import FirebaseFirestore
 import Combine
 import Foundation
 import FirebaseFirestoreSwift
 
+@MainActor
 class AppViewModel: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: User?
@@ -15,14 +16,15 @@ class AppViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var companyCache: [String: Company] = [:]
     private var lastCompanyLoadTime: Date?
+    private var authStateListener: AuthStateDidChangeListenerHandle?
     
     init() {
         checkAuthenticationStatus()
     }
     
     private func checkAuthenticationStatus() {
-        _ = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            DispatchQueue.main.async {
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            Task { @MainActor in
                 self?.isAuthenticated = user != nil
                 self?.currentUser = user
                 if let user = user {
@@ -179,5 +181,13 @@ class AppViewModel: ObservableObject {
                 self?.signOut()
             }
         }
+    }
+    
+    deinit {
+        if let listener = authStateListener {
+            Auth.auth().removeStateDidChangeListener(listener)
+        }
+        cancellables.removeAll()
+        print("✅ AppViewModel temizlendi")
     }
 }

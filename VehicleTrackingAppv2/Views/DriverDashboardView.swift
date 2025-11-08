@@ -260,9 +260,10 @@ struct DriverDashboardView: View {
         } else if let phone = appViewModel.currentUserProfile?.phone,
                   let driver = driverViewModel.drivers.first(where: { 
                       normalizePhone($0.phoneNumber) == normalizePhone(phone) 
-                  }) {
-            driverId = driver.id
-            print("✅ Sürücü drivers listesinden bulundu: \(driver.id)")
+                  }),
+                  let driverIdValue = driver.id {
+            driverId = driverIdValue
+            print("✅ Sürücü drivers listesinden bulundu: \(driverIdValue)")
         }
         
         guard let driverId = driverId else {
@@ -309,7 +310,10 @@ struct DriverDashboardView: View {
         }
         
         guard let assignedId = assignedVehicleId else { return nil }
-        return vehicleViewModel.vehicles.first(where: { $0.id == assignedId })
+        return vehicleViewModel.vehicles.first(where: { 
+            guard let vehicleId = $0.id else { return false }
+            return vehicleId == assignedId 
+        })
     }
     
     private func notifications() -> [String] {

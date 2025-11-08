@@ -214,7 +214,7 @@ struct DriverDetailView: View {
     let viewModel: DriverViewModel
     let appViewModel: AppViewModel
     
-    init(driver: Driver, viewModel: DriverViewModel = DriverViewModel(), appViewModel: AppViewModel = AppViewModel()) {
+    init(driver: Driver, viewModel: DriverViewModel, appViewModel: AppViewModel) {
         self.driver = driver
         self.viewModel = viewModel
         self.appViewModel = appViewModel
@@ -739,7 +739,10 @@ struct AssignTripToDriverSheet: View {
                                         HStack {
                                             Image(systemName: selectedVehicleId == assignedVehicleId ? "checkmark.circle.fill" : "circle")
                                                 .foregroundColor(.blue)
-                                            if let vehicle = vehicleViewModel.vehicles.first(where: { $0.id == assignedVehicleId }) {
+                                            if let vehicle = vehicleViewModel.vehicles.first(where: { 
+                                                guard let vehicleId = $0.id else { return false }
+                                                return vehicleId == assignedVehicleId 
+                                            }) {
                                                 VStack(alignment: .leading) {
                                                     Text(vehicle.displayName)
                                                         .font(.body)
@@ -754,12 +757,15 @@ struct AssignTripToDriverSheet: View {
                                         }
                                     }
                                     
-                                    ForEach(vehicleViewModel.vehicles.filter { $0.id != assignedVehicleId && $0.isActive }) { vehicle in
+                                    ForEach(vehicleViewModel.vehicles.filter { 
+                                        guard let vehicleId = $0.id else { return false }
+                                        return vehicleId != assignedVehicleId && $0.isActive 
+                                    }) { vehicle in
                                         Button {
                                             selectedVehicleId = vehicle.id
                                         } label: {
                                             HStack {
-                                                Image(systemName: selectedVehicleId == vehicle.id ? "checkmark.circle.fill" : "circle")
+                                                Image(systemName: (selectedVehicleId != nil && selectedVehicleId == vehicle.id) ? "checkmark.circle.fill" : "circle")
                                                     .foregroundColor(.blue)
                                                 VStack(alignment: .leading) {
                                                     Text(vehicle.displayName)
@@ -884,7 +890,13 @@ struct AssignTripToDriverSheet: View {
         let vehicleIdToAssign = selectedVehicleId ?? driver.assignedVehicleId
         
         // İşi sürücüye ata
-        tripViewModel.assignTrip(trip, vehicleId: vehicleIdToAssign, driverId: driver.id)
+        guard let driverId = driver.id else {
+            errorMessage = "Sürücü ID bulunamadı"
+            isSaving = false
+            return
+        }
+        
+        tripViewModel.assignTrip(trip, vehicleId: vehicleIdToAssign, driverId: driverId)
         
         // Kısa bir gecikme ekle ve kapat
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

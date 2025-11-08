@@ -358,11 +358,4 @@ struct AddEditVehicleView: View {
     }
 }
 
-struct AddEditVehicleView_Previews: PreviewProvider {
-    static var previews: some View {
-        AddEditVehicleView(
-            viewModel: VehicleViewModel(),
-            appViewModel: AppViewModel()
-        )
-    }
-}
+// Preview removed - ViewModel requires @MainActor context

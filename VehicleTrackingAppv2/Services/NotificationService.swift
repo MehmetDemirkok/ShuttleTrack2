@@ -19,19 +19,21 @@ final class NotificationService {
     }
 
     func scheduleVehicleExpiryNotifications(for vehicle: Vehicle) {
+        guard let vehicleId = vehicle.id else { return }
+        
         // Sigorta
         scheduleExpirySet(
             plate: vehicle.plateNumber,
             kind: "sigortası",
             expiryDate: vehicle.insuranceExpiryDate,
-            idPrefix: "insurance-\(vehicle.id)"
+            idPrefix: "insurance-\(vehicleId)"
         )
         // Muayene
         scheduleExpirySet(
             plate: vehicle.plateNumber,
             kind: "muayenesi",
             expiryDate: vehicle.inspectionExpiryDate,
-            idPrefix: "inspection-\(vehicle.id)"
+            idPrefix: "inspection-\(vehicleId)"
         )
     }
 

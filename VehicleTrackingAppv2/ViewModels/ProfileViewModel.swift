@@ -4,6 +4,7 @@ import FirebaseFirestore
 import Combine
 import FirebaseFirestoreSwift
 
+@MainActor
 class ProfileViewModel: ObservableObject {
     @Published var userProfile: UserProfile?
     @Published var isLoading = false

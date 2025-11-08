@@ -1,6 +1,8 @@
 import Foundation
 import CoreLocation
 import SwiftUI
+import FirebaseFirestore
+import FirebaseFirestoreSwift
 
 enum VehicleType: String, CaseIterable, Codable {
     case automobile = "Otomobil"
@@ -18,7 +20,7 @@ enum VehicleType: String, CaseIterable, Codable {
 }
 
 struct Vehicle: Identifiable, Codable {
-    let id: String
+    @DocumentID var id: String?
     var plateNumber: String
     var model: String
     var brand: String
@@ -34,7 +36,7 @@ struct Vehicle: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     
-    init(id: String = UUID().uuidString, 
+    init(id: String? = nil, 
          plateNumber: String, 
          model: String, 
          brand: String, 

@@ -707,12 +707,18 @@ struct TripDetailView: View {
     // MARK: - Helpers
     private func findVehicle(by id: String) -> Vehicle? {
         guard !id.isEmpty else { return nil }
-        return viewModel.vehicles.first { $0.id == id }
+        return viewModel.vehicles.first { 
+            guard let vehicleId = $0.id else { return false }
+            return vehicleId == id 
+        }
     }
     
     private func findDriver(by id: String) -> Driver? {
         guard !id.isEmpty else { return nil }
-        return viewModel.drivers.first { $0.id == id }
+        return viewModel.drivers.first { 
+            guard let driverId = $0.id else { return false }
+            return driverId == id 
+        }
     }
     
     private func formatCurrency(_ amount: Double) -> String {

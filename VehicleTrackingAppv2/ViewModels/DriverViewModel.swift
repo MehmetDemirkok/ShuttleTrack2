@@ -3,6 +3,7 @@ import Combine
 import FirebaseFirestore
 import FirebaseFirestoreSwift
 
+@MainActor
 class DriverViewModel: ObservableObject {
     @Published var drivers: [Driver] = []
     @Published var currentDriver: Driver?
@@ -80,7 +81,7 @@ class DriverViewModel: ObservableObject {
                     
                     if let driver = drivers.first {
                         self?.currentDriver = driver
-                        print("✅ Sürücü bulundu: \(driver.id) - \(driver.fullName)")
+                        print("✅ Sürücü bulundu: \(driver.id ?? "nil") - \(driver.fullName)")
                     } else {
                         self?.currentDriver = nil
                         print("⚠️ Sürücü bulunamadı - Normalized phone: \(normalizedPhone)")
@@ -103,11 +104,17 @@ class DriverViewModel: ObservableObject {
     }
     
     func addDriver(_ driver: Driver) {
+        guard let driverId = driver.id ?? UUID().uuidString as String? else {
+            isLoading = false
+            errorMessage = "Sürücü ID oluşturulamadı"
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
         do {
-            try db.collection("drivers").document(driver.id).setData(from: driver) { [weak self] error in
+            try db.collection("drivers").document(driverId).setData(from: driver) { [weak self] error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
@@ -124,6 +131,12 @@ class DriverViewModel: ObservableObject {
     }
     
     func updateDriver(_ driver: Driver) {
+        guard let driverId = driver.id else {
+            isLoading = false
+            errorMessage = "Sürücü ID bulunamadı"
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
@@ -131,7 +144,7 @@ class DriverViewModel: ObservableObject {
         updatedDriver.updatedAt = Date()
         
         do {
-            try db.collection("drivers").document(driver.id).setData(from: updatedDriver) { [weak self] error in
+            try db.collection("drivers").document(driverId).setData(from: updatedDriver) { [weak self] error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
@@ -148,10 +161,16 @@ class DriverViewModel: ObservableObject {
     }
     
     func deleteDriver(_ driver: Driver) {
+        guard let driverId = driver.id else {
+            isLoading = false
+            errorMessage = "Sürücü ID bulunamadı"
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
-        db.collection("drivers").document(driver.id).delete { [weak self] error in
+        db.collection("drivers").document(driverId).delete { [weak self] error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 if let error = error {

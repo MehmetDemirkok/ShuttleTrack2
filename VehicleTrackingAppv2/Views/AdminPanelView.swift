@@ -163,7 +163,10 @@ struct AdminPanelView: View {
             }
             .listRowSeparator(.hidden)
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) { viewModel.deleteVehicle(v.id) } label: { Label("Sil", systemImage: "trash") }
+                Button(role: .destructive) {
+                    guard let vehicleId = v.id else { return }
+                    viewModel.deleteVehicle(vehicleId)
+                } label: { Label("Sil", systemImage: "trash") }
             }
         }
         .listStyle(.plain)
@@ -192,7 +195,10 @@ struct AdminPanelView: View {
             }
             .listRowSeparator(.hidden)
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                Button(role: .destructive) { viewModel.deleteDriver(d.id) } label: { Label("Sil", systemImage: "trash") }
+                Button(role: .destructive) {
+                    guard let driverId = d.id else { return }
+                    viewModel.deleteDriver(driverId)
+                } label: { Label("Sil", systemImage: "trash") }
             }
         }
         .listStyle(.plain)

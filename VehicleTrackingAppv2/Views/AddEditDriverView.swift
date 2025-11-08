@@ -314,11 +314,4 @@ struct AddEditDriverView: View {
     }
 }
 
-struct AddEditDriverView_Previews: PreviewProvider {
-    static var previews: some View {
-        AddEditDriverView(
-            viewModel: DriverViewModel(),
-            appViewModel: AppViewModel()
-        )
-    }
-}
+// Preview removed - ViewModel requires @MainActor context

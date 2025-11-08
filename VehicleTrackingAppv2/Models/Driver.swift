@@ -1,8 +1,10 @@
 import Foundation
 import SwiftUI
+import FirebaseFirestore
+import FirebaseFirestoreSwift
 
 struct Driver: Identifiable, Codable {
-    let id: String
+    @DocumentID var id: String?
     var firstName: String
     var lastName: String
     var phoneNumber: String
@@ -14,7 +16,7 @@ struct Driver: Identifiable, Codable {
     var createdAt: Date
     var updatedAt: Date
     
-    init(id: String = UUID().uuidString,
+    init(id: String? = nil,
          firstName: String,
          lastName: String,
          phoneNumber: String,

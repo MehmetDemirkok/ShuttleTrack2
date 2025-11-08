@@ -530,7 +530,7 @@ struct VehicleDetailView: View {
     let viewModel: VehicleViewModel
     let appViewModel: AppViewModel
     
-    init(vehicle: Vehicle, viewModel: VehicleViewModel = VehicleViewModel(), appViewModel: AppViewModel = AppViewModel()) {
+    init(vehicle: Vehicle, viewModel: VehicleViewModel, appViewModel: AppViewModel) {
         self.vehicle = vehicle
         self.viewModel = viewModel
         self.appViewModel = appViewModel

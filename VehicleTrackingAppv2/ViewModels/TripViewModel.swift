@@ -3,6 +3,7 @@ import Combine
 import FirebaseFirestore
 import FirebaseFirestoreSwift
 
+@MainActor
 class TripViewModel: ObservableObject {
     @Published var trips: [Trip] = []
     @Published var vehicles: [Vehicle] = []
@@ -12,13 +13,18 @@ class TripViewModel: ObservableObject {
     
     private let db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
+    private var tripsListener: ListenerRegistration?
+    private var vehiclesListener: ListenerRegistration?
+    private var driversListener: ListenerRegistration?
     
     func fetchTrips(for companyId: String) {
+        // Önceki listener'ı temizle
+        tripsListener?.remove()
         isLoading = true
         errorMessage = ""
         
         // Index gerektirmeyen basit sorgu
-        db.collection("trips")
+        tripsListener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
             .limit(to: 50) // Maksimum 50 trip
             .addSnapshotListener { [weak self] snapshot, error in
@@ -54,10 +60,13 @@ class TripViewModel: ObservableObject {
     
     // Sürücüye özel: sadece o sürücünün işleri (assigned/in_progress)
     func fetchTripsForDriver(companyId: String, driverId: String) {
+        // Önceki listener'ı temizle
+        tripsListener?.remove()
+        
         isLoading = true
         errorMessage = ""
         
-        db.collection("trips")
+        tripsListener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("driverId", isEqualTo: driverId)
             .addSnapshotListener { [weak self] snapshot, error in
@@ -81,7 +90,10 @@ class TripViewModel: ObservableObject {
     }
     
     func fetchVehicles(for companyId: String) {
-        db.collection("vehicles")
+        // Önceki listener'ı temizle
+        vehiclesListener?.remove()
+        
+        vehiclesListener = db.collection("vehicles")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("isActive", isEqualTo: true)
             .addSnapshotListener { [weak self] snapshot, error in
@@ -104,7 +116,10 @@ class TripViewModel: ObservableObject {
     }
     
     func fetchDrivers(for companyId: String) {
-        db.collection("drivers")
+        // Önceki listener'ı temizle
+        driversListener?.remove()
+        
+        driversListener = db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("isActive", isEqualTo: true)
             .addSnapshotListener { [weak self] snapshot, error in
@@ -269,14 +284,20 @@ class TripViewModel: ObservableObject {
         let assignedVehicleIds = trips.compactMap { trip in
             trip.vehicleId.isEmpty ? nil : trip.vehicleId
         }
-        return vehicles.filter { !assignedVehicleIds.contains($0.id) }
+        return vehicles.filter { vehicle in
+            guard let vehicleId = vehicle.id else { return false }
+            return !assignedVehicleIds.contains(vehicleId)
+        }
     }
     
     func getAvailableDrivers() -> [Driver] {
         let assignedDriverIds = trips.compactMap { trip in
             trip.driverId.isEmpty ? nil : trip.driverId
         }
-        return drivers.filter { !assignedDriverIds.contains($0.id) }
+        return drivers.filter { driver in
+            guard let driverId = driver.id else { return false }
+            return !assignedDriverIds.contains(driverId)
+        }
     }
     
     // Sürücüye ait işleri getir
@@ -336,5 +357,13 @@ class TripViewModel: ObservableObject {
                     completion(tripNumber)
                 }
             }
+    }
+    
+    deinit {
+        tripsListener?.remove()
+        vehiclesListener?.remove()
+        driversListener?.remove()
+        cancellables.removeAll()
+        print("✅ TripViewModel temizlendi")
     }
 }
