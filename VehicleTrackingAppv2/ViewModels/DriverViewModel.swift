@@ -54,9 +54,13 @@ class DriverViewModel: ObservableObject {
         errorMessage = ""
         currentDriver = nil
         
+        // Telefon numarasını normalize et
+        let normalizedPhone = normalizePhone(phone)
+        print("🔍 Sürücü aranıyor - Company: \(companyId), Phone: \(phone) -> Normalized: \(normalizedPhone)")
+        
+        // Önce normalize edilmiş telefon numarasıyla dene
         currentDriverListener = db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
-            .whereField("phoneNumber", isEqualTo: phone)
             .whereField("isActive", isEqualTo: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
@@ -66,13 +70,32 @@ class DriverViewModel: ObservableObject {
                         print("❌ Current driver observe error: \(error.localizedDescription)")
                         return
                     }
-                    guard let doc = snapshot?.documents.first else {
+                    
+                    // Client-side'da telefon numarasına göre filtrele
+                    let drivers = snapshot?.documents.compactMap { doc -> Driver? in
+                        guard let driver = try? doc.data(as: Driver.self) else { return nil }
+                        let driverPhoneNormalized = self?.normalizePhone(driver.phoneNumber) ?? ""
+                        return driverPhoneNormalized == normalizedPhone ? driver : nil
+                    } ?? []
+                    
+                    if let driver = drivers.first {
+                        self?.currentDriver = driver
+                        print("✅ Sürücü bulundu: \(driver.id) - \(driver.fullName)")
+                    } else {
                         self?.currentDriver = nil
-                        return
+                        print("⚠️ Sürücü bulunamadı - Normalized phone: \(normalizedPhone)")
                     }
-                    self?.currentDriver = try? doc.data(as: Driver.self)
                 }
             }
+    }
+    
+    // Telefon numarasını normalize et (boşluk, tire, parantez kaldır)
+    private func normalizePhone(_ phone: String) -> String {
+        return phone.replacingOccurrences(of: " ", with: "")
+                   .replacingOccurrences(of: "-", with: "")
+                   .replacingOccurrences(of: "(", with: "")
+                   .replacingOccurrences(of: ")", with: "")
+                   .replacingOccurrences(of: "+", with: "")
     }
     
     deinit {

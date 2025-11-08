@@ -190,10 +190,13 @@ service cloud.firestore {
       // Şoförler sadece kendilerine atanan transferleri güncelleyebilir
       allow update: if isDriver() && 
         belongsToUserCompany(resource) &&
-        resource.data.driverId == getUserProfile().driverLicenseNumber &&
-        // Sadece bu alanlar güncellenebilir
-        request.resource.data.keys().hasOnly(['actualPickupTime', 'actualDropoffTime', 'status', 'notes', 'updatedAt']) &&
+        // Sürücü ID kontrolü: driverId boş olmamalı (sürücüye atanmış olmalı)
+        resource.data.driverId != null &&
+        resource.data.driverId != '' &&
+        // Sadece izin verilen alanlar değişebilir
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['actualPickupTime', 'actualDropoffTime', 'status', 'notes', 'updatedAt']) &&
         isValidTripStatus() &&
+        // Değiştirilemeyen alanlar aynı kalmalı
         request.resource.data.companyId == resource.data.companyId &&
         request.resource.data.driverId == resource.data.driverId &&
         request.resource.data.vehicleId == resource.data.vehicleId &&

@@ -174,12 +174,17 @@ class TripViewModel: ObservableObject {
         var updatedTrip = trip
         updatedTrip.updatedAt = Date()
         
+        // Sadece güncellenebilir alanları gönder (sürücü için)
+        // Admin için tüm alanları gönderebiliriz
         do {
-            try db.collection("trips").document(tripId).setData(from: updatedTrip) { [weak self] error in
+            try db.collection("trips").document(tripId).setData(from: updatedTrip, merge: true) { [weak self] error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
                         self?.errorMessage = error.localizedDescription
+                        print("❌ Trip update error: \(error.localizedDescription)")
+                    } else {
+                        print("✅ Trip updated successfully: \(tripId)")
                     }
                 }
             }
@@ -187,6 +192,7 @@ class TripViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.errorMessage = error.localizedDescription
+                print("❌ Trip update encoding error: \(error.localizedDescription)")
             }
         }
     }
@@ -280,6 +286,14 @@ class TripViewModel: ObservableObject {
             return filtered
         }
         return filtered.filter { statuses.contains($0.status) }
+    }
+    
+    // Atanmamış işleri getir (sürücüye atama için)
+    func getUnassignedTrips() -> [Trip] {
+        return trips.filter { trip in
+            // Sadece scheduled durumunda ve driverId boş olan işler
+            trip.status == .scheduled && trip.driverId.isEmpty
+        }
     }
     
     // Otomatik transfer numarası oluştur
