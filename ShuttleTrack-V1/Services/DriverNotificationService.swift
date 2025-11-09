@@ -84,7 +84,19 @@ class DriverNotificationService {
     /// Bildirim oluştur
     private func createNotification(_ notification: DriverNotification) async {
         do {
-            _ = try await db.collection("driverNotifications").addDocument(from: notification)
+            let _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference, Error>) in
+                do {
+                    let docRef = try db.collection("driverNotifications").addDocument(from: notification) { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume(returning: docRef)
+                        }
+                    }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
             print("✅ Notification created: \(notification.title)")
         } catch {
             print("❌ Error creating notification: \(error.localizedDescription)")
