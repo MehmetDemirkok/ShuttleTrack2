@@ -504,83 +504,244 @@ struct DriverTripCard: View {
                 }
             }
             
-            // Gerçekleşen Zamanlar (varsa)
-            if let actualPickup = trip.actualPickupTime {
-                Divider()
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    Text("Yola çıkış: \(formatDateTime(actualPickup))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            // Zaman Takibi Bölümü
+            Divider()
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Zaman Takibi")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                // Planlanan Zamanlar
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("Planlanan")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption2)
+                                Text("Alış")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(formatDateTime(trip.scheduledPickupTime))
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .foregroundColor(.orange)
+                                    .font(.caption2)
+                                Text("Bırakış")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(formatDateTime(trip.scheduledDropoffTime))
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                    }
                 }
-            }
-            
-            if let actualDropoff = trip.actualDropoffTime {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.caption)
-                    Text("Teslim: \(formatDateTime(actualDropoff))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+                
+                // Gerçekleşen Zamanlar
+                if let actualPickup = trip.actualPickupTime {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                            Text("Gerçekleşen")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Yola Çıkış
+                            HStack(spacing: 12) {
+                                Image(systemName: "play.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Yola Çıkış")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.green)
+                                    Text(formatDateTime(actualPickup))
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.primary)
+                                    
+                                    // Gecikme/Erkenlik kontrolü
+                                    let timeDiff = actualPickup.timeIntervalSince(trip.scheduledPickupTime)
+                                    if abs(timeDiff) > 300 { // 5 dakikadan fazla fark varsa
+                                        HStack(spacing: 4) {
+                                            Image(systemName: timeDiff > 0 ? "arrow.up.circle" : "arrow.down.circle")
+                                                .foregroundColor(timeDiff > 0 ? .red : .green)
+                                                .font(.caption2)
+                                            Text(timeDiff > 0 ? "\(Int(timeDiff / 60)) dk gecikme" : "\(Int(abs(timeDiff) / 60)) dk erken")
+                                                .font(.caption2)
+                                                .foregroundColor(timeDiff > 0 ? .red : .green)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 6)
+                            
+                            // Teslim (varsa)
+                            if let actualDropoff = trip.actualDropoffTime {
+                                Divider()
+                                HStack(spacing: 12) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.title3)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Teslim Edildi")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.blue)
+                                        Text(formatDateTime(actualDropoff))
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        // Süre hesaplama
+                                        let duration = actualDropoff.timeIntervalSince(actualPickup)
+                                        let hours = Int(duration / 3600)
+                                        let minutes = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "clock.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.caption2)
+                                            Text("Süre: \(hours)s \(minutes)dk")
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 6)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                } else {
+                    // Henüz başlamamış
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        Text("Henüz başlamadı")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
                 }
             }
             
             // Aksiyon Butonları
             if trip.status != .completed && trip.status != .cancelled {
                 Divider()
-                HStack(spacing: 8) {
-                    // Yola Çık butonu (sadece assigned durumunda)
-                    if trip.status == .assigned {
-                        Button(action: onStart) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "play.circle.fill")
-                                    .font(.caption)
-                                Text("Yola Çık")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        // Yola Çık butonu (sadece assigned durumunda)
+                        if trip.status == .assigned {
+                            Button(action: onStart) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.title3)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Yola Çık")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Text("İşe başladığınızı bildirin")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.9))
+                                    }
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.green, Color.green.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(12)
+                                .shadow(color: Color.green.opacity(0.3), radius: 4, x: 0, y: 2)
                             }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.green)
-                            .cornerRadius(10)
+                        }
+                        
+                        // Teslim Et butonu (sadece inProgress durumunda)
+                        if trip.status == .inProgress {
+                            Button(action: onComplete) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.title3)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Teslim Et")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                        Text("İşi tamamladığınızı bildirin")
+                                            .font(.caption2)
+                                            .foregroundColor(.white.opacity(0.9))
+                                    }
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(12)
+                                .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                            }
                         }
                     }
-                    
-                    // Teslim Et butonu (sadece inProgress durumunda)
-                    if trip.status == .inProgress {
-                        Button(action: onComplete) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
-                                Text("Teslim Et")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Color.blue)
-                            .cornerRadius(10)
-                        }
-                    }
-                    
-                    Spacer()
                     
                     // İptal butonu (assigned veya inProgress durumunda)
                     if trip.status == .assigned || trip.status == .inProgress {
                         Button(action: onCancel) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.caption)
-                                Text("İptal")
+                                    .font(.title3)
+                                Text("İşi İptal Et")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                             }
                             .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                             .background(Color.red)

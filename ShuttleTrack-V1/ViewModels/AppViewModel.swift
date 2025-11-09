@@ -17,6 +17,8 @@ class AppViewModel: ObservableObject {
     private var companyCache: [String: Company] = [:]
     private var lastCompanyLoadTime: Date?
     private var authStateListener: AuthStateDidChangeListenerHandle?
+    private var profileLoadStartTime: Date?
+    private var profileLoadTimer: Timer?
     
     init() {
         checkAuthenticationStatus()
@@ -44,21 +46,64 @@ class AppViewModel: ObservableObject {
 
     // Sürücü hızlı giriş akışında profil oluşturulduktan sonra UI'yı ilerletmek için
     func reloadAfterDriverProfileCreated(_ profile: UserProfile) {
-        DispatchQueue.main.async {
+        Task { @MainActor in
+            print("🔄 reloadAfterDriverProfileCreated çağrıldı: \(profile.userId)")
+            // Timer'ı iptal et (profil başarıyla yüklendi)
+            profileLoadTimer?.invalidate()
+            profileLoadTimer = nil
+            profileLoadStartTime = nil
             self.currentUserProfile = profile
             let companyId = profile.companyId ?? profile.userId
+            print("🏢 Şirket yükleniyor: \(companyId)")
             self.loadCompanyData(companyId: companyId)
         }
     }
     
     private func loadUserProfile(for user: User) {
+        // Eğer profil zaten yüklenmişse ve aynı kullanıcı ise tekrar yükleme
+        if let existingProfile = currentUserProfile, existingProfile.userId == user.uid {
+            print("ℹ️ User profile zaten yüklü: \(user.uid) — tekrar yükleme atlanıyor")
+            // Timer'ı iptal et
+            profileLoadTimer?.invalidate()
+            profileLoadTimer = nil
+            profileLoadStartTime = nil
+            // Şirket bilgisi yoksa yükle
+            if currentCompany == nil {
+                let companyId = existingProfile.companyId ?? user.uid
+                loadCompanyData(companyId: companyId)
+            }
+            return
+        }
+        
+        // Profil yükleme başlangıç zamanını kaydet
+        profileLoadStartTime = Date()
+        
         let db = Firestore.firestore()
         
         db.collection("userProfiles").document(user.uid).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
+                // Yükleme sırasında profil başka bir yerden yüklenmişse (örneğin reloadAfterDriverProfileCreated)
+                // tekrar yükleme yapma
+                if let existingProfile = self?.currentUserProfile, existingProfile.userId == user.uid {
+                    print("ℹ️ User profile zaten yüklü (yükleme sırasında): \(user.uid) — tekrar yükleme atlanıyor")
+                    // Timer'ı iptal et
+                    self?.profileLoadTimer?.invalidate()
+                    self?.profileLoadTimer = nil
+                    self?.profileLoadStartTime = nil
+                    if self?.currentCompany == nil {
+                        let companyId = existingProfile.companyId ?? user.uid
+                        self?.loadCompanyData(companyId: companyId)
+                    }
+                    return
+                }
+                
                 if let document = document, document.exists {
                     do {
                         let profile = try document.data(as: UserProfile.self)
+                        // Timer'ı iptal et
+                        self?.profileLoadTimer?.invalidate()
+                        self?.profileLoadTimer = nil
+                        self?.profileLoadStartTime = nil
                         // Profil aktif mi kontrol et
                         // Owner ve CompanyAdmin kullanıcıları onay beklemeden erişebilir
                         if profile.isActive || profile.userType == .owner || profile.userType == .companyAdmin {
@@ -77,6 +122,9 @@ class AppViewModel: ObservableObject {
                         }
                     } catch {
                         print("❌ User profile decode hatası: \(error)")
+                        self?.profileLoadTimer?.invalidate()
+                        self?.profileLoadTimer = nil
+                        self?.profileLoadStartTime = nil
                         self?.signOut()
                     }
                 } else {
@@ -84,6 +132,8 @@ class AppViewModel: ObservableObject {
                     // Anonim oturumlar için varsayılan owner profili OLUŞTURMA.
                     // Sürücü hızlı giriş akışı profilini kendisi oluşturur.
                     if user.isAnonymous {
+                        // Anonymous kullanıcı için timeout: 10 saniye içinde profil yüklenmezse çıkış yap
+                        self?.startProfileLoadTimeout(for: user)
                         return
                     }
                     // Diğer kullanıcı tipleri için ilk girişte otomatik profil oluştur
@@ -91,6 +141,31 @@ class AppViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    // Profil yükleme timeout'u: Belirli bir süre içinde profil yüklenmezse çıkış yap
+    private func startProfileLoadTimeout(for user: User) {
+        // Önceki timer'ı iptal et
+        profileLoadTimer?.invalidate()
+        
+        // 10 saniye sonra kontrol et
+        let userId = user.uid
+        let timer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                // Hala profil yüklenmemişse ve aynı kullanıcı ise çıkış yap
+                if self.currentUserProfile == nil, 
+                   let currentUser = Auth.auth().currentUser,
+                   currentUser.uid == userId {
+                    print("⏱️ Profil yükleme timeout: 10 saniye içinde profil yüklenmedi, çıkış yapılıyor")
+                    self.authMessage = "Profil yüklenemedi. Lütfen tekrar giriş yapmayı deneyin."
+                    self.signOut()
+                }
+                self.profileLoadTimer = nil
+                self.profileLoadStartTime = nil
+            }
+        }
+        profileLoadTimer = timer
     }
     
     private func loadCompanyData(companyId: String) {
@@ -137,6 +212,10 @@ class AppViewModel: ObservableObject {
     }
     
     func signOut() {
+        // Timer'ı iptal et
+        profileLoadTimer?.invalidate()
+        profileLoadTimer = nil
+        profileLoadStartTime = nil
         do {
             try Auth.auth().signOut()
             isAuthenticated = false
@@ -184,6 +263,8 @@ class AppViewModel: ObservableObject {
     }
     
     deinit {
+        // Timer'ı iptal et
+        profileLoadTimer?.invalidate()
         if let listener = authStateListener {
             Auth.auth().removeStateDidChangeListener(listener)
         }

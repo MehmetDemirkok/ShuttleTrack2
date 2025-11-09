@@ -198,77 +198,163 @@ struct LoginView: View {
         errorMessage = ""
         let raw = driverIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         let (maybeEmail, maybePhone) = classify(raw)
-        // Önce anonim giriş yap, sonra sürücüyü sorgula (rules gereği)
-        Auth.auth().signInAnonymously { _, anonErr in
+        
+        // Önce sürücüyü Firestore'dan bul (anonymous giriş yapmadan)
+        let db = Firestore.firestore()
+        var query = db.collection("drivers").whereField("isActive", isEqualTo: true)
+        if let email = maybeEmail {
+            query = query.whereField("email", isEqualTo: email)
+        } else if let phone = maybePhone {
+            query = query.whereField("phoneNumber", isEqualTo: phone)
+        } else {
+            self.isLoading = false
+            self.errorMessage = "Lütfen geçerli e‑posta veya telefon girin"
+            return
+        }
+        
+        query.getDocuments { snapshot, error in
             DispatchQueue.main.async {
-                if let anonErr = anonErr {
+                if let error = error {
                     self.isLoading = false
-                    self.errorMessage = anonErr.localizedDescription
+                    self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(error)
                     return
                 }
-                let db = Firestore.firestore()
-                var query = db.collection("drivers").whereField("isActive", isEqualTo: true)
-                if let email = maybeEmail {
-                    query = query.whereField("email", isEqualTo: email)
-                } else if let phone = maybePhone {
-                    query = query.whereField("phoneNumber", isEqualTo: phone)
-                } else {
+                
+                guard let doc = snapshot?.documents.first, let driver = try? doc.data(as: Driver.self) else {
                     self.isLoading = false
-                    self.errorMessage = "Lütfen geçerli e‑posta veya telefon girin"
+                    self.errorMessage = "Kayıtlı aktif sürücü bulunamadı"
                     return
                 }
-                query.getDocuments { snapshot, error in
-                    DispatchQueue.main.async {
-                        if let error = error {
-                            self.isLoading = false
-                            self.errorMessage = error.localizedDescription
-                            return
-                        }
-                        guard let doc = snapshot?.documents.first, let driver = try? doc.data(as: Driver.self) else {
-                            self.isLoading = false
-                            self.errorMessage = "Kayıtlı aktif sürücü bulunamadı"
-                            return
-                        }
-                        guard let uid = Auth.auth().currentUser?.uid else {
-                            self.isLoading = false
-                            self.errorMessage = "Kullanıcı oluşturulamadı"
-                            return
-                        }
-                        let now = Date()
-                        var profile = UserProfile(
-                            userId: uid,
-                            userType: .driver,
-                            email: driver.email,
-                            fullName: driver.fullName,
-                            phone: driver.phoneNumber,
-                            companyId: driver.companyId,
-                            driverLicenseNumber: nil
-                        )
-                        profile.id = uid
-                        profile.isActive = true
-                        profile.lastLoginAt = now
-                        do {
-                            try Firestore.firestore().collection("userProfiles").document(uid).setData(from: profile, merge: true) { setErr in
-                                DispatchQueue.main.async {
-                                    self.isLoading = false
-                                    if let setErr = setErr {
-                                        self.errorMessage = setErr.localizedDescription
+                
+                // Eğer sürücüde authUserId varsa, direkt email/password ile giriş yap
+                if let authUserId = driver.authUserId, !authUserId.isEmpty {
+                    // Email/password kullanıcısına direkt giriş yap (anonymous oluşturma)
+                    let defaultPassword = "000000"
+                    Auth.auth().signIn(withEmail: driver.email, password: defaultPassword) { signInResult, signInError in
+                        DispatchQueue.main.async {
+                            if let signInError = signInError {
+                                self.isLoading = false
+                                let nsError = signInError as NSError
+                                // Şifre yanlış veya kullanıcı bulunamadı hatası
+                                if nsError.domain == "FIRAuthErrorDomain" {
+                                    if nsError.code == 17008 { // Wrong password
+                                        self.errorMessage = "Şifre hatalı. Lütfen yöneticinizle iletişime geçin."
+                                    } else if nsError.code == 17011 { // User not found
+                                        self.errorMessage = "Giriş hesabı bulunamadı. Lütfen yöneticinizle iletişime geçin."
                                     } else {
-                                        // AppViewModel'a bildir: profil oluşturuldu, şirketi yükle ve yönlendir
-                                        self.appViewModel.reloadAfterDriverProfileCreated(profile)
+                                        self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(signInError)
                                     }
+                                } else {
+                                    self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(signInError)
                                 }
+                                return
                             }
-                        } catch {
-                            self.isLoading = false
-                            self.errorMessage = error.localizedDescription
+                            
+                            // Email/password girişi başarılı
+                            print("✅ Email/password kullanıcısına giriş yapıldı")
+                            if let user = signInResult?.user {
+                                // Profil zaten var mı kontrol et, yoksa oluştur
+                                self.checkAndCreateProfileIfNeeded(driver: driver, userId: user.uid)
+                            }
+                        }
+                    }
+                } else {
+                    // authUserId yoksa, anonymous giriş yap (eski sürücüler için)
+                    print("⚠️ Sürücüde authUserId yok, anonymous giriş yapılıyor")
+                    Auth.auth().signInAnonymously { _, anonErr in
+                        DispatchQueue.main.async {
+                            if let anonErr = anonErr {
+                                self.isLoading = false
+                                self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(anonErr)
+                                return
+                            }
+                            
+                            guard let currentUser = Auth.auth().currentUser else {
+                                self.isLoading = false
+                                self.errorMessage = "Kullanıcı oluşturulamadı"
+                                return
+                            }
+                            
+                            // Anonymous ile devam et
+                            self.createUserProfileAndContinue(driver: driver, userId: currentUser.uid)
                         }
                     }
                 }
             }
         }
     }
+    
+    // Profil var mı kontrol et, yoksa oluştur
+    private func checkAndCreateProfileIfNeeded(driver: Driver, userId: String) {
+        let db = Firestore.firestore()
+        db.collection("userProfiles").document(userId).getDocument { snapshot, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("⚠️ Profil kontrol hatası: \(error.localizedDescription)")
+                    // Hata olsa bile profil oluşturmayı dene
+                    self.createUserProfileAndContinue(driver: driver, userId: userId)
+                    return
+                }
+                
+                if let snapshot = snapshot, snapshot.exists {
+                    // Profil zaten var, AppViewModel yükleyecek
+                    print("✅ Profil zaten mevcut, AppViewModel yükleyecek")
+                    self.isLoading = false
+                    // AppViewModel'in authStateListener'ı otomatik olarak profili yükleyecek
+                } else {
+                    // Profil yok, oluştur
+                    print("ℹ️ Profil bulunamadı, oluşturuluyor...")
+                    self.createUserProfileAndContinue(driver: driver, userId: userId)
+                }
+            }
+        }
+    }
 
+    private func createUserProfileAndContinue(driver: Driver, userId: String) {
+        let now = Date()
+        var profile = UserProfile(
+            userId: userId,
+            userType: .driver,
+            email: driver.email,
+            fullName: driver.fullName,
+            phone: driver.phoneNumber,
+            companyId: driver.companyId,
+            driverLicenseNumber: nil
+        )
+        profile.id = userId
+        profile.isActive = true
+        profile.lastLoginAt = now
+        
+        do {
+            try Firestore.firestore().collection("userProfiles").document(userId).setData(from: profile, merge: true) { setErr in
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    if let setErr = setErr {
+                        // Profil oluşturma başarısız, hata mesajı göster ama çıkış yapma
+                        // Çünkü kullanıcı zaten giriş yapmış olabilir
+                        let errorMsg = ErrorHandler.shared.getLocalizedErrorMessage(setErr)
+                        print("❌ Profil oluşturma başarısız: \(setErr.localizedDescription)")
+                        self.errorMessage = errorMsg
+                        
+                        // Eğer kullanıcı zaten giriş yapmışsa, AppViewModel profili yüklemeye çalışacak
+                        // Eğer yüklenemezse timeout mekanizması devreye girecek
+                        // Burada signOut yapmıyoruz çünkü kullanıcı zaten giriş yapmış olabilir
+                    } else {
+                        // AppViewModel'a bildir: profil oluşturuldu, şirketi yükle ve yönlendir
+                        print("✅ Profil başarıyla oluşturuldu: \(userId)")
+                        self.appViewModel.reloadAfterDriverProfileCreated(profile)
+                    }
+                }
+            }
+        } catch {
+            self.isLoading = false
+            let errorMsg = ErrorHandler.shared.getLocalizedErrorMessage(error)
+            print("❌ Profil oluşturma hatası: \(error.localizedDescription)")
+            self.errorMessage = errorMsg
+            // Hata olsa bile çıkış yapma, AppViewModel profili yüklemeye çalışacak
+        }
+    }
+    
     private func classify(_ input: String) -> (String?, String?) {
         // email?
         let emailPattern = "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$"
