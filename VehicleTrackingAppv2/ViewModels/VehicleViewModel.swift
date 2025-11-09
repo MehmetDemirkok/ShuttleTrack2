@@ -8,8 +8,12 @@ class VehicleViewModel: ObservableObject {
     @Published var vehicles: [Vehicle] = []
     @Published var isLoading = false
     @Published var errorMessage = ""
+    @Published var showRetryButton = false
+    @Published var lastFailedAction: (() -> Void)?
     
     private let db = Firestore.firestore()
+    private let errorHandler = ErrorHandler.shared
+    private let networkMonitor = NetworkMonitor.shared
     private var cancellables = Set<AnyCancellable>()
     private var vehiclesListener: ListenerRegistration?
     
@@ -28,10 +32,19 @@ class VehicleViewModel: ObservableObject {
                     self?.isLoading = false
                     
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.fetchVehicles(for: companyId)
+                        }
                         print("❌ Vehicle fetch error: \(error.localizedDescription)")
                         return
                     }
+                    
+                    // Başarılı olduğunda retry butonunu gizle
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     
                     guard let documents = snapshot?.documents else {
                         self?.vehicles = []
@@ -58,8 +71,19 @@ class VehicleViewModel: ObservableObject {
     }
     
     func addVehicle(_ vehicle: Vehicle) {
+        // Network kontrolü
+        guard networkMonitor.isConnected else {
+            errorMessage = "İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin."
+            showRetryButton = true
+            lastFailedAction = { [weak self] in
+                self?.addVehicle(vehicle)
+            }
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
+        showRetryButton = false
         
         // Önce aynı plaka kontrolü yap
         checkPlateNumberExists(plateNumber: vehicle.plateNumber, companyId: vehicle.companyId) { [weak self] exists in
@@ -85,14 +109,27 @@ class VehicleViewModel: ObservableObject {
                     DispatchQueue.main.async {
                         self?.isLoading = false
                         if let error = error {
-                            self?.errorMessage = error.localizedDescription
+                            let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                            self?.errorMessage = localizedError
+                            self?.showRetryButton = true
+                            self?.lastFailedAction = { [weak self] in
+                                self?.addVehicle(vehicle)
+                            }
+                        } else {
+                            self?.showRetryButton = false
+                            self?.lastFailedAction = nil
                         }
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
                     self?.isLoading = false
-                    self?.errorMessage = error.localizedDescription
+                    let localizedError = ErrorHandler.shared.getLocalizedErrorMessage(error)
+                    self?.errorMessage = localizedError
+                    self?.showRetryButton = true
+                    self?.lastFailedAction = { [weak self] in
+                        self?.addVehicle(vehicle)
+                    }
                 }
             }
         }
@@ -144,14 +181,27 @@ class VehicleViewModel: ObservableObject {
                     DispatchQueue.main.async {
                         self?.isLoading = false
                         if let error = error {
-                            self?.errorMessage = error.localizedDescription
+                            let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                            self?.errorMessage = localizedError
+                            self?.showRetryButton = true
+                            self?.lastFailedAction = { [weak self] in
+                                self?.updateVehicle(vehicle)
+                            }
+                        } else {
+                            self?.showRetryButton = false
+                            self?.lastFailedAction = nil
                         }
                     }
                 }
             } catch {
                 DispatchQueue.main.async {
                     self?.isLoading = false
-                    self?.errorMessage = error.localizedDescription
+                    let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                    self?.errorMessage = localizedError
+                    self?.showRetryButton = true
+                    self?.lastFailedAction = { [weak self] in
+                        self?.updateVehicle(vehicle)
+                    }
                 }
             }
         }
@@ -196,7 +246,15 @@ class VehicleViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self?.isLoading = false
                 if let error = error {
-                    self?.errorMessage = error.localizedDescription
+                    let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                    self?.errorMessage = localizedError
+                    self?.showRetryButton = true
+                    self?.lastFailedAction = { [weak self] in
+                        self?.deleteVehicle(vehicle)
+                    }
+                } else {
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                 }
             }
         }

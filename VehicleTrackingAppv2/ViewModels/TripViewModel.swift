@@ -10,8 +10,12 @@ class TripViewModel: ObservableObject {
     @Published var drivers: [Driver] = []
     @Published var isLoading = false
     @Published var errorMessage = ""
+    @Published var showRetryButton = false
+    @Published var lastFailedAction: (() -> Void)?
     
     private let db = Firestore.firestore()
+    private let errorHandler = ErrorHandler.shared
+    private let networkMonitor = NetworkMonitor.shared
     private var cancellables = Set<AnyCancellable>()
     private var tripsListener: ListenerRegistration?
     private var vehiclesListener: ListenerRegistration?
@@ -32,10 +36,19 @@ class TripViewModel: ObservableObject {
                     self?.isLoading = false
                     
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.fetchTrips(for: companyId)
+                        }
                         print("❌ Trip fetch error: \(error.localizedDescription)")
                         return
                     }
+                    
+                    // Başarılı olduğunda retry butonunu gizle
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     
                     guard let documents = snapshot?.documents else {
                         self?.trips = []
@@ -73,10 +86,19 @@ class TripViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.fetchTripsForDriver(companyId: companyId, driverId: driverId)
+                        }
                         print("❌ Trip fetch (driver) error: \(error.localizedDescription)")
                         return
                     }
+                    
+                    // Başarılı olduğunda retry butonunu gizle
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     guard let documents = snapshot?.documents else {
                         self?.trips = []
                         return
@@ -142,8 +164,19 @@ class TripViewModel: ObservableObject {
     }
     
     func addTrip(_ trip: Trip) {
+        // Network kontrolü
+        guard networkMonitor.isConnected else {
+            errorMessage = "İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin."
+            showRetryButton = true
+            lastFailedAction = { [weak self] in
+                self?.addTrip(trip)
+            }
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
+        showRetryButton = false
         
         guard let tripId = trip.id else {
             DispatchQueue.main.async {
@@ -158,9 +191,16 @@ class TripViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.addTrip(trip)
+                        }
                         print("Error adding trip: \(error)")
                     } else {
+                        self?.showRetryButton = false
+                        self?.lastFailedAction = nil
                         print("Trip added successfully: \(tripId)")
                     }
                 }
@@ -168,15 +208,31 @@ class TripViewModel: ObservableObject {
         } catch {
             DispatchQueue.main.async {
                 self.isLoading = false
-                self.errorMessage = error.localizedDescription
+                let localizedError = self.errorHandler.getLocalizedErrorMessage(error)
+                self.errorMessage = localizedError
+                self.showRetryButton = true
+                self.lastFailedAction = { [weak self] in
+                    self?.addTrip(trip)
+                }
                 print("Error encoding trip: \(error)")
             }
         }
     }
     
     func updateTrip(_ trip: Trip) {
+        // Network kontrolü
+        guard networkMonitor.isConnected else {
+            errorMessage = "İnternet bağlantınız yok. Lütfen bağlantınızı kontrol edin."
+            showRetryButton = true
+            lastFailedAction = { [weak self] in
+                self?.updateTrip(trip)
+            }
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
+        showRetryButton = false
         
         guard let tripId = trip.id else {
             DispatchQueue.main.async {
@@ -196,9 +252,16 @@ class TripViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.updateTrip(trip)
+                        }
                         print("❌ Trip update error: \(error.localizedDescription)")
                     } else {
+                        self?.showRetryButton = false
+                        self?.lastFailedAction = nil
                         print("✅ Trip updated successfully: \(tripId)")
                     }
                 }
@@ -206,7 +269,12 @@ class TripViewModel: ObservableObject {
         } catch {
             DispatchQueue.main.async {
                 self.isLoading = false
-                self.errorMessage = error.localizedDescription
+                let localizedError = self.errorHandler.getLocalizedErrorMessage(error)
+                self.errorMessage = localizedError
+                self.showRetryButton = true
+                self.lastFailedAction = { [weak self] in
+                    self?.updateTrip(trip)
+                }
                 print("❌ Trip update encoding error: \(error.localizedDescription)")
             }
         }
@@ -228,9 +296,16 @@ class TripViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self?.isLoading = false
                 if let error = error {
-                    self?.errorMessage = error.localizedDescription
+                    let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                    self?.errorMessage = localizedError
+                    self?.showRetryButton = true
+                    self?.lastFailedAction = { [weak self] in
+                        self?.deleteTrip(trip)
+                    }
                     print("Error deleting trip: \(error)")
                 } else {
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     print("Trip deleted successfully: \(tripId)")
                 }
             }

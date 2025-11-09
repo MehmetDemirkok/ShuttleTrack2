@@ -62,6 +62,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
         NotificationService.shared.requestAuthorizationIfNeeded(completion: nil)
+        
+        // Network durumunu izlemeye başla
+        Task { @MainActor in
+            NetworkMonitor.shared.startMonitoring()
+        }
+        
         return true
     }
 }

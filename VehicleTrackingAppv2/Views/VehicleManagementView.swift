@@ -57,12 +57,11 @@ struct VehicleManagementView: View {
                     .listStyle(PlainListStyle())
                 }
                 
-                if !viewModel.errorMessage.isEmpty {
-                    Text(viewModel.errorMessage)
-                        .foregroundColor(Color.red)
-                        .font(.caption)
-                        .padding()
-                }
+                ErrorMessageView(
+                    message: viewModel.errorMessage,
+                    showRetry: viewModel.showRetryButton,
+                    onRetry: viewModel.lastFailedAction
+                )
             }
             .background(ShuttleTrackTheme.Colors.background)
             .navigationTitle("Araçlar")

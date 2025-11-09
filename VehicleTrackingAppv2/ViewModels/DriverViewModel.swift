@@ -9,8 +9,12 @@ class DriverViewModel: ObservableObject {
     @Published var currentDriver: Driver?
     @Published var isLoading = false
     @Published var errorMessage = ""
+    @Published var showRetryButton = false
+    @Published var lastFailedAction: (() -> Void)?
     
     private let db = Firestore.firestore()
+    private let errorHandler = ErrorHandler.shared
+    private let networkMonitor = NetworkMonitor.shared
     private var cancellables = Set<AnyCancellable>()
     private var currentDriverListener: ListenerRegistration?
     
@@ -27,10 +31,19 @@ class DriverViewModel: ObservableObject {
                     self?.isLoading = false
                     
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.fetchDrivers(for: companyId)
+                        }
                         print("❌ Driver fetch error: \(error.localizedDescription)")
                         return
                     }
+                    
+                    // Başarılı olduğunda retry butonunu gizle
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     
                     guard let documents = snapshot?.documents else {
                         self?.drivers = []
@@ -67,10 +80,19 @@ class DriverViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     if let error = error {
-                        self?.errorMessage = error.localizedDescription
+                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
+                        self?.errorMessage = localizedError
+                        self?.showRetryButton = true
+                        self?.lastFailedAction = { [weak self] in
+                            self?.observeCurrentDriver(companyId: companyId, phone: phone)
+                        }
                         print("❌ Current driver observe error: \(error.localizedDescription)")
                         return
                     }
+                    
+                    // Başarılı olduğunda retry butonunu gizle
+                    self?.showRetryButton = false
+                    self?.lastFailedAction = nil
                     
                     // Client-side'da telefon numarasına göre filtrele
                     let drivers = snapshot?.documents.compactMap { doc -> Driver? in

@@ -1,5 +1,47 @@
 import SwiftUI
 
+// MARK: - Error Message with Retry Button
+struct ErrorMessageView: View {
+    let message: String
+    let showRetry: Bool
+    let onRetry: (() -> Void)?
+    
+    var body: some View {
+        if !message.isEmpty {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(ShuttleTrackTheme.Colors.error)
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundColor(ShuttleTrackTheme.Colors.error)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(ShuttleTrackTheme.Colors.error.opacity(0.1))
+                .cornerRadius(8)
+                
+                if showRetry, let onRetry = onRetry {
+                    Button(action: onRetry) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Tekrar Dene")
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(ShuttleTrackTheme.Colors.primaryPurple)
+                        .cornerRadius(10)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+}
+
 // MARK: - Form Section Header
 struct FormSectionHeader: View {
     let title: String
