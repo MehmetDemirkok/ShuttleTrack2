@@ -112,7 +112,7 @@ struct AddEditDriverView: View {
                 }
             }
             .background(ShuttleTrackTheme.Colors.background)
-            .navigationTitle(isEditing ? "Şoför Düzenle" : "Yeni Şoför")
+            .navigationTitle(isEditing ? "Sürücü Düzenle" : "Yeni Sürücü")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
                 leading: Button(action: {
@@ -188,22 +188,29 @@ struct AddEditDriverView: View {
         // Email'i normalize et (lowercase)
         let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // 1) E-posta şirket yetkilisinin kendi e-postası mı? (Aynı mail ile şoför eklenemez)
+        // 1) E-posta şirket yetkilisinin kendi e-postası mı? (Aynı mail ile sürücü eklenemez)
         if let adminEmail = appViewModel.currentUserProfile?.email, adminEmail.lowercased() == normalizedEmail {
-            errorMessage = "Bu e‑posta şirket yetkilisine ait. Şoför eklenemez."
+            errorMessage = "Bu e‑posta şirket yetkilisine ait. Sürücü eklenemez."
             isLoading = false
             return
         }
         
-        // 2) Aynı şirkette aynı e‑posta ile şoför var mı?
-        let emailDup = viewModel.drivers.contains { $0.companyId == companyId && $0.email.lowercased() == normalizedEmail }
+        // 2) Aynı şirkette aynı e‑posta ile sürücü var mı? (Düzenleme durumunda mevcut sürücüyü hariç tut)
+        let emailDup = viewModel.drivers.contains { driver in
+            driver.companyId == companyId 
+            && driver.email.lowercased() == normalizedEmail
+            && (isEditing ? driver.id != self.driver?.id : true) // Düzenleme durumunda mevcut sürücüyü hariç tut
+        }
         if emailDup {
-            errorMessage = "Bu e‑posta ile kayıtlı bir şoför zaten mevcut."
+            errorMessage = "Bu e‑posta ile kayıtlı bir sürücü zaten mevcut."
             isLoading = false
             return
         }
-        // 3) Telefon dup kontrolü (mevcut davranış)
-        let phoneDup = viewModel.drivers.contains { $0.phoneNumber == normalizedPhone }
+        // 3) Telefon dup kontrolü (Düzenleme durumunda mevcut sürücüyü hariç tut)
+        let phoneDup = viewModel.drivers.contains { driver in
+            driver.phoneNumber == normalizedPhone
+            && (isEditing ? driver.id != self.driver?.id : true) // Düzenleme durumunda mevcut sürücüyü hariç tut
+        }
         if phoneDup {
             errorMessage = "Bu telefon numarası zaten kayıtlı"
             isLoading = false
