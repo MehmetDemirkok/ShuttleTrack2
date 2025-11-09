@@ -6,7 +6,6 @@ struct TripAssignmentView: View {
     @StateObject private var exportService = ExportService()
     @State private var showingAddTrip = false
     @State private var showingAddCargo = false
-    @State private var showingTripDetail = false
     @State private var tripForDetail: Trip?
     @State private var showingDeleteAlert = false
     @State private var tripToDelete: Trip?
@@ -104,8 +103,9 @@ struct TripAssignmentView: View {
                             TripRowCard(
                                 trip: trip,
                                 onTap: {
+                                    // Verileri yükle ve detay sayfasını aç
+                                    loadDetailData()
                                     tripForDetail = trip
-                                    showingTripDetail = true
                                 }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -179,22 +179,16 @@ struct TripAssignmentView: View {
             .sheet(isPresented: $showingAddCargo) {
                 AddEditCargoView(viewModel: viewModel, appViewModel: appViewModel)
             }
-            .sheet(isPresented: $showingTripDetail) {
-                if let trip = tripForDetail {
-                    TripDetailView(
-                        trip: trip,
-                        viewModel: viewModel,
-                        appViewModel: appViewModel,
-                        onDelete: { t in
-                            tripToDelete = t
-                            showingDeleteAlert = true
-                        }
-                    )
-                    .onAppear {
-                        // Detay sayfası açıldığında gerekli verileri yükle
-                        loadDetailData()
+            .sheet(item: $tripForDetail) { trip in
+                TripDetailView(
+                    trip: trip,
+                    viewModel: viewModel,
+                    appViewModel: appViewModel,
+                    onDelete: { t in
+                        tripToDelete = t
+                        showingDeleteAlert = true
                     }
-                }
+                )
             }
             .alert("İşi Sil", isPresented: $showingDeleteAlert) {
                 Button("İptal", role: .cancel) { }
@@ -502,18 +496,7 @@ struct TripDetailView: View {
     
     var body: some View {
         NavigationView {
-            if viewModel.isLoading && (viewModel.vehicles.isEmpty || viewModel.drivers.isEmpty) {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    
-                    Text("Detaylar yükleniyor...")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
+            ScrollView {
                 VStack(spacing: 24) {
                     // Header
                     VStack(spacing: 12) {
@@ -693,14 +676,13 @@ struct TripDetailView: View {
                     .padding(.horizontal, 20)
                     Spacer(minLength: 20)
                 }
-                }
             }
-        }
-        .navigationTitle("İş Detayı")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(trailing: Button("Kapat") { presentationMode.wrappedValue.dismiss() })
-        .sheet(isPresented: $showingEditSheet) {
-            AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
+            .navigationTitle("İş Detayı")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(trailing: Button("Kapat") { presentationMode.wrappedValue.dismiss() })
+            .sheet(isPresented: $showingEditSheet) {
+                AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
+            }
         }
     }
     

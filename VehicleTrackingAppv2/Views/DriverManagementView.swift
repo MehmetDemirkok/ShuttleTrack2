@@ -4,7 +4,6 @@ struct DriverManagementView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @StateObject private var viewModel = DriverViewModel()
     @State private var showingAddDriver = false
-    @State private var showingDriverDetail = false
     @State private var driverForDetail: Driver?
     
     var body: some View {
@@ -46,8 +45,9 @@ struct DriverManagementView: View {
                             DriverRowView(
                                 driver: driver,
                                 onTap: {
+                                    // Verileri yükle ve detay sayfasını aç
+                                    loadDetailData()
                                     driverForDetail = driver
-                                    showingDriverDetail = true
                                 }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -80,14 +80,8 @@ struct DriverManagementView: View {
             .sheet(isPresented: $showingAddDriver) {
                 AddEditDriverView(viewModel: viewModel, appViewModel: appViewModel)
             }
-            .sheet(isPresented: $showingDriverDetail) {
-                if let driver = driverForDetail {
-                    DriverDetailView(driver: driver, viewModel: viewModel, appViewModel: appViewModel)
-                        .onAppear {
-                            // Detay sayfası açıldığında gerekli verileri yükle
-                            loadDetailData()
-                        }
-                }
+            .sheet(item: $driverForDetail) { driver in
+                DriverDetailView(driver: driver, viewModel: viewModel, appViewModel: appViewModel)
             }
         }
     }
@@ -222,18 +216,7 @@ struct DriverDetailView: View {
     
     var body: some View {
         NavigationView {
-            if viewModel.isLoading {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    
-                    Text("Detaylar yükleniyor...")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
+            ScrollView {
                 VStack(spacing: 24) {
                     // Header Section
                     VStack(spacing: 16) {
@@ -490,37 +473,36 @@ struct DriverDetailView: View {
                     
                     Spacer(minLength: 20)
                 }
+            }
+            .navigationTitle("Sürücü Detayları")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Kapat") {
+                    presentationMode.wrappedValue.dismiss()
                 }
-            }
-        }
-        .navigationTitle("Sürücü Detayları")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(
-            trailing: Button("Kapat") {
-                presentationMode.wrappedValue.dismiss()
-            }
-        )
-        .sheet(isPresented: $showingEditSheet) {
-            AddEditDriverView(
-                driver: driver,
-                viewModel: viewModel,
-                appViewModel: appViewModel
             )
-        }
-        .sheet(isPresented: $showingAssignSheet) {
-            AssignVehicleSheet(driver: driver, driverViewModel: viewModel, appViewModel: appViewModel)
-        }
-        .sheet(isPresented: $showingAssignTripSheet) {
-            AssignTripToDriverSheet(driver: driver, appViewModel: appViewModel)
-        }
-        .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
-            Button("İptal", role: .cancel) { }
-            Button("Sil", role: .destructive) {
-                viewModel.deleteDriver(driver)
-                presentationMode.wrappedValue.dismiss()
+            .sheet(isPresented: $showingEditSheet) {
+                AddEditDriverView(
+                    driver: driver,
+                    viewModel: viewModel,
+                    appViewModel: appViewModel
+                )
             }
-        } message: {
-            Text("Bu sürücüyü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            .sheet(isPresented: $showingAssignSheet) {
+                AssignVehicleSheet(driver: driver, driverViewModel: viewModel, appViewModel: appViewModel)
+            }
+            .sheet(isPresented: $showingAssignTripSheet) {
+                AssignTripToDriverSheet(driver: driver, appViewModel: appViewModel)
+            }
+            .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Sil", role: .destructive) {
+                    viewModel.deleteDriver(driver)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } message: {
+                Text("Bu sürücüyü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            }
         }
     }
 }

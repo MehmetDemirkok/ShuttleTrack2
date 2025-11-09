@@ -4,7 +4,6 @@ struct VehicleManagementView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @StateObject private var viewModel = VehicleViewModel()
     @State private var showingAddVehicle = false
-    @State private var showingVehicleDetail = false
     @State private var vehicleForDetail: Vehicle?
     
     var body: some View {
@@ -46,8 +45,9 @@ struct VehicleManagementView: View {
                             VehicleRowView(
                                 vehicle: vehicle,
                                 onTap: {
+                                    // Verileri yükle ve detay sayfasını aç
+                                    loadDetailData()
                                     vehicleForDetail = vehicle
-                                    showingVehicleDetail = true
                                 }
                             )
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -79,14 +79,8 @@ struct VehicleManagementView: View {
             .sheet(isPresented: $showingAddVehicle) {
                 AddEditVehicleView(viewModel: viewModel, appViewModel: appViewModel)
             }
-            .sheet(isPresented: $showingVehicleDetail) {
-                if let vehicle = vehicleForDetail {
-                    VehicleDetailView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
-                        .onAppear {
-                            // Detay sayfası açıldığında gerekli verileri yükle
-                            loadDetailData()
-                        }
-                }
+            .sheet(item: $vehicleForDetail) { vehicle in
+                VehicleDetailView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
             }
         }
     }
@@ -537,18 +531,7 @@ struct VehicleDetailView: View {
     
     var body: some View {
         NavigationView {
-            if viewModel.isLoading {
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    
-                    Text("Detaylar yükleniyor...")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
+            ScrollView {
                 VStack(spacing: 24) {
                     
                     // Header Section
@@ -762,31 +745,30 @@ struct VehicleDetailView: View {
                     
                     Spacer(minLength: 20)
                 }
+            }
+            .navigationTitle("Araç Detayları")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                trailing: Button("Kapat") {
+                    presentationMode.wrappedValue.dismiss()
                 }
-            }
-        }
-        .navigationTitle("Araç Detayları")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(
-            trailing: Button("Kapat") {
-                presentationMode.wrappedValue.dismiss()
-            }
-        )
-        .sheet(isPresented: $showingEditSheet) {
-            AddEditVehicleView(
-                vehicle: vehicle,
-                viewModel: viewModel,
-                appViewModel: appViewModel
             )
-        }
-        .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
-            Button("İptal", role: .cancel) { }
-            Button("Sil", role: .destructive) {
-                viewModel.deleteVehicle(vehicle)
-                presentationMode.wrappedValue.dismiss()
+            .sheet(isPresented: $showingEditSheet) {
+                AddEditVehicleView(
+                    vehicle: vehicle,
+                    viewModel: viewModel,
+                    appViewModel: appViewModel
+                )
             }
-        } message: {
-            Text("Bu aracı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Sil", role: .destructive) {
+                    viewModel.deleteVehicle(vehicle)
+                    presentationMode.wrappedValue.dismiss()
+                }
+            } message: {
+                Text("Bu aracı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            }
         }
     }
     
