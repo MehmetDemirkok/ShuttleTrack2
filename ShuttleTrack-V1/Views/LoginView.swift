@@ -201,16 +201,9 @@ struct LoginView: View {
         
         // Önce sürücüyü Firestore'dan bul (anonymous giriş yapmadan)
         let db = Firestore.firestore()
-        var query = db.collection("drivers").whereField("isActive", isEqualTo: true)
-        if let email = maybeEmail {
-            query = query.whereField("email", isEqualTo: email)
-        } else if let phone = maybePhone {
-            query = query.whereField("phoneNumber", isEqualTo: phone)
-        } else {
-            self.isLoading = false
-            self.errorMessage = "Lütfen geçerli e‑posta veya telefon girin"
-            return
-        }
+        
+        // Email sorgusu case-sensitive olabilir, bu yüzden tüm aktif sürücüleri çekip client-side filtreleme yapıyoruz
+        let query = db.collection("drivers").whereField("isActive", isEqualTo: true)
         
         query.getDocuments { snapshot, error in
             DispatchQueue.main.async {
@@ -220,9 +213,55 @@ struct LoginView: View {
                     return
                 }
                 
-                guard let doc = snapshot?.documents.first, let driver = try? doc.data(as: Driver.self) else {
+                guard let documents = snapshot?.documents else {
                     self.isLoading = false
                     self.errorMessage = "Kayıtlı aktif sürücü bulunamadı"
+                    return
+                }
+                
+                // Client-side filtreleme (case-insensitive email karşılaştırması)
+                print("🔍 Sürücü arama - Toplam aktif sürücü: \(documents.count)")
+                if let email = maybeEmail {
+                    print("📧 Email ile aranıyor: \(email)")
+                } else if let phone = maybePhone {
+                    print("📱 Telefon ile aranıyor: \(phone)")
+                }
+                
+                let drivers = documents.compactMap { doc -> Driver? in
+                    guard let driver = try? doc.data(as: Driver.self) else { return nil }
+                    
+                    if let email = maybeEmail {
+                        // Email karşılaştırması case-insensitive
+                        let driverEmailLower = driver.email.lowercased()
+                        let searchEmailLower = email.lowercased()
+                        print("  🔎 Karşılaştırma: '\(driverEmailLower)' == '\(searchEmailLower)' ? \(driverEmailLower == searchEmailLower)")
+                        if driverEmailLower == searchEmailLower {
+                            print("✅ Eşleşme bulundu: \(driver.fullName) - \(driver.email)")
+                            return driver
+                        }
+                    } else if let phone = maybePhone {
+                        // Telefon karşılaştırması (normalize edilmiş)
+                        let driverPhoneNormalized = self.normalizePhoneForComparison(driver.phoneNumber)
+                        let searchPhoneNormalized = self.normalizePhoneForComparison(phone)
+                        if driverPhoneNormalized == searchPhoneNormalized {
+                            print("✅ Telefon eşleşmesi bulundu: \(driver.fullName) - \(driver.phoneNumber)")
+                            return driver
+                        }
+                    }
+                    return nil
+                }
+                
+                print("📊 Eşleşen sürücü sayısı: \(drivers.count)")
+                
+                guard let driver = drivers.first else {
+                    self.isLoading = false
+                    if let email = maybeEmail {
+                        self.errorMessage = "Bu e-posta adresi ile kayıtlı aktif sürücü bulunamadı: \(email)"
+                    } else if let phone = maybePhone {
+                        self.errorMessage = "Bu telefon numarası ile kayıtlı aktif sürücü bulunamadı: \(phone)"
+                    } else {
+                        self.errorMessage = "Aranan kayıt bulunamadı"
+                    }
                     return
                 }
                 
@@ -230,7 +269,9 @@ struct LoginView: View {
                 if let authUserId = driver.authUserId, !authUserId.isEmpty {
                     // Email/password kullanıcısına direkt giriş yap (anonymous oluşturma)
                     let defaultPassword = "000000"
-                    Auth.auth().signIn(withEmail: driver.email, password: defaultPassword) { signInResult, signInError in
+                    // Email'i normalize et (lowercase)
+                    let driverEmail = driver.email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                    Auth.auth().signIn(withEmail: driverEmail, password: defaultPassword) { signInResult, signInError in
                         DispatchQueue.main.async {
                             if let signInError = signInError {
                                 self.isLoading = false
@@ -259,26 +300,9 @@ struct LoginView: View {
                         }
                     }
                 } else {
-                    // authUserId yoksa, anonymous giriş yap (eski sürücüler için)
-                    print("⚠️ Sürücüde authUserId yok, anonymous giriş yapılıyor")
-                    Auth.auth().signInAnonymously { _, anonErr in
-                        DispatchQueue.main.async {
-                            if let anonErr = anonErr {
-                                self.isLoading = false
-                                self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(anonErr)
-                                return
-                            }
-                            
-                            guard let currentUser = Auth.auth().currentUser else {
-                                self.isLoading = false
-                                self.errorMessage = "Kullanıcı oluşturulamadı"
-                                return
-                            }
-                            
-                            // Anonymous ile devam et
-                            self.createUserProfileAndContinue(driver: driver, userId: currentUser.uid)
-                        }
-                    }
+                    // authUserId yoksa, geçici çözüm: direkt Firebase Auth ile kullanıcı oluştur veya giriş yap
+                    print("⚠️ Sürücüde authUserId yok, Firebase Auth ile kullanıcı oluşturuluyor/giriş yapılıyor")
+                    self.createOrSignInDriver(driver: driver)
                 }
             }
         }
@@ -353,6 +377,118 @@ struct LoginView: View {
             self.errorMessage = errorMsg
             // Hata olsa bile çıkış yapma, AppViewModel profili yüklemeye çalışacak
         }
+    }
+    
+    // Geçici çözüm: Cloud Function olmadan Firebase Auth ile sürücü kullanıcısı oluştur veya giriş yap
+    private func createOrSignInDriver(driver: Driver) {
+        let defaultPassword = "000000"
+        // Email'i normalize et (lowercase)
+        let driverEmail = driver.email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Önce giriş yapmayı dene (kullanıcı zaten varsa)
+        Auth.auth().signIn(withEmail: driverEmail, password: defaultPassword) { signInResult, signInError in
+            DispatchQueue.main.async {
+                if let signInError = signInError {
+                    let nsError = signInError as NSError
+                    
+                    // Kullanıcı bulunamadı hatası (17011) - yeni kullanıcı oluştur
+                    if nsError.domain == "FIRAuthErrorDomain" && nsError.code == 17011 {
+                        print("ℹ️ Kullanıcı bulunamadı, yeni kullanıcı oluşturuluyor...")
+                        self.createDriverAuthUser(driver: driver, password: defaultPassword)
+                    } else if nsError.code == 17008 {
+                        // Şifre yanlış - kullanıcı var ama şifre farklı
+                        self.isLoading = false
+                        self.errorMessage = "Şifre hatalı. Lütfen yöneticinizle iletişime geçin."
+                    } else {
+                        // Diğer hatalar
+                        self.isLoading = false
+                        self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(signInError)
+                    }
+                    return
+                }
+                
+                // Giriş başarılı
+                print("✅ Mevcut kullanıcıya giriş yapıldı")
+                if let user = signInResult?.user {
+                    // Driver kaydını güncelle: authUserId ekle
+                    self.updateDriverWithAuthUserId(driver: driver, authUserId: user.uid)
+                    // Profil kontrolü ve oluşturma
+                    self.checkAndCreateProfileIfNeeded(driver: driver, userId: user.uid)
+                }
+            }
+        }
+    }
+    
+    // Firebase Auth ile sürücü kullanıcısı oluştur
+    private func createDriverAuthUser(driver: Driver, password: String) {
+        // Email'i normalize et (lowercase)
+        let driverEmail = driver.email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        Auth.auth().createUser(withEmail: driverEmail, password: password) { result, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self.isLoading = false
+                    let nsError = error as NSError
+                    
+                    // Email zaten kullanılıyor hatası (17007) - tekrar giriş yapmayı dene
+                    if nsError.domain == "FIRAuthErrorDomain" && nsError.code == 17007 {
+                        print("ℹ️ Email zaten kullanılıyor, giriş yapılıyor...")
+                        Auth.auth().signIn(withEmail: driverEmail, password: password) { signInResult, signInError in
+                            DispatchQueue.main.async {
+                                if let signInError = signInError {
+                                    self.isLoading = false
+                                    self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(signInError)
+                                } else if let user = signInResult?.user {
+                                    self.updateDriverWithAuthUserId(driver: driver, authUserId: user.uid)
+                                    self.checkAndCreateProfileIfNeeded(driver: driver, userId: user.uid)
+                                }
+                            }
+                        }
+                    } else {
+                        self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(error)
+                    }
+                    return
+                }
+                
+                // Kullanıcı oluşturuldu
+                print("✅ Yeni sürücü kullanıcısı oluşturuldu")
+                if let user = result?.user {
+                    // Driver kaydını güncelle: authUserId ekle
+                    self.updateDriverWithAuthUserId(driver: driver, authUserId: user.uid)
+                    // Profil oluştur
+                    self.createUserProfileAndContinue(driver: driver, userId: user.uid)
+                }
+            }
+        }
+    }
+    
+    // Driver kaydına authUserId ekle
+    private func updateDriverWithAuthUserId(driver: Driver, authUserId: String) {
+        guard let driverId = driver.id else {
+            print("⚠️ Driver ID bulunamadı, authUserId güncellenemedi")
+            return
+        }
+        
+        let db = Firestore.firestore()
+        db.collection("drivers").document(driverId).updateData([
+            "authUserId": authUserId,
+            "updatedAt": Date()
+        ]) { error in
+            if let error = error {
+                print("⚠️ Driver authUserId güncelleme hatası: \(error.localizedDescription)")
+            } else {
+                print("✅ Driver authUserId güncellendi: \(authUserId)")
+            }
+        }
+    }
+    
+    // Telefon numarasını karşılaştırma için normalize et
+    private func normalizePhoneForComparison(_ phone: String) -> String {
+        return phone.replacingOccurrences(of: " ", with: "")
+                   .replacingOccurrences(of: "-", with: "")
+                   .replacingOccurrences(of: "(", with: "")
+                   .replacingOccurrences(of: ")", with: "")
+                   .replacingOccurrences(of: "+", with: "")
     }
     
     private func classify(_ input: String) -> (String?, String?) {

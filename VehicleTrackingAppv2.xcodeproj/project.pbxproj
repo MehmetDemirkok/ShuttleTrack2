@@ -21,7 +21,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A80A7ED02EAFC7870014A1E6 /* VehicleTrackingAppv2 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VehicleTrackingAppv2;
+			path = "ShuttleTrack-V1";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */

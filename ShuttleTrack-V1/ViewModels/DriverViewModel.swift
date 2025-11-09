@@ -126,28 +126,43 @@ class DriverViewModel: ObservableObject {
     }
     
     func addDriver(_ driver: Driver) {
-        guard let driverId = driver.id ?? UUID().uuidString as String? else {
-            isLoading = false
-            errorMessage = "Sürücü ID oluşturulamadı"
-            return
-        }
-        
         isLoading = true
         errorMessage = ""
         
-        do {
-            try db.collection("drivers").document(driverId).setData(from: driver) { [weak self] error in
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-                    if let error = error {
-                        self?.errorMessage = error.localizedDescription
+        // ID varsa setData kullan, yoksa addDocument kullan (Firestore otomatik ID oluşturur)
+        if let driverId = driver.id {
+            // Mevcut ID ile kaydet
+            do {
+                try db.collection("drivers").document(driverId).setData(from: driver) { [weak self] error in
+                    DispatchQueue.main.async {
+                        self?.isLoading = false
+                        if let error = error {
+                            self?.errorMessage = error.localizedDescription
+                        }
                     }
                 }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.errorMessage = error.localizedDescription
+                }
             }
-        } catch {
-            DispatchQueue.main.async {
-                self.isLoading = false
-                self.errorMessage = error.localizedDescription
+        } else {
+            // Yeni document, Firestore otomatik ID oluşturur
+            do {
+                _ = try db.collection("drivers").addDocument(from: driver) { [weak self] error in
+                    DispatchQueue.main.async {
+                        self?.isLoading = false
+                        if let error = error {
+                            self?.errorMessage = error.localizedDescription
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                    self.errorMessage = error.localizedDescription
+                }
             }
         }
     }

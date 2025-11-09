@@ -199,15 +199,18 @@ struct AddEditDriverView: View {
             return
         }
 
+        // Email'i normalize et (lowercase)
+        let normalizedEmail = email.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
         // 1) E-posta şirket yetkilisinin kendi e-postası mı? (Aynı mail ile şoför eklenemez)
-        if let adminEmail = appViewModel.currentUserProfile?.email, adminEmail.lowercased() == email.lowercased() {
+        if let adminEmail = appViewModel.currentUserProfile?.email, adminEmail.lowercased() == normalizedEmail {
             errorMessage = "Bu e‑posta şirket yetkilisine ait. Şoför eklenemez."
             isLoading = false
             return
         }
-
+        
         // 2) Aynı şirkette aynı e‑posta ile şoför var mı?
-        let emailDup = viewModel.drivers.contains { $0.companyId == companyId && $0.email.lowercased() == email.lowercased() }
+        let emailDup = viewModel.drivers.contains { $0.companyId == companyId && $0.email.lowercased() == normalizedEmail }
         if emailDup {
             errorMessage = "Bu e‑posta ile kayıtlı bir şoför zaten mevcut."
             isLoading = false
@@ -258,12 +261,15 @@ struct AddEditDriverView: View {
             }
         }
         
+        // Yeni driver için ID nil bırakılır (Firestore otomatik oluşturur)
+        // Düzenleme için mevcut ID kullanılır
+        // Email'i lowercase'e çevirerek kaydet (tutarlılık için)
         let newDriver = Driver(
-            id: driver?.id ?? UUID().uuidString,
+            id: isEditing ? driver?.id : nil,
             firstName: firstName,
             lastName: lastName,
             phoneNumber: normalizedPhone,
-            email: email,
+            email: normalizedEmail,
             isActive: isActive,
             companyId: companyId
         )
