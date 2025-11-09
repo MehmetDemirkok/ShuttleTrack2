@@ -86,7 +86,8 @@ class DriverNotificationService {
         do {
             let _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference, Error>) in
                 do {
-                    let docRef = try db.collection("driverNotifications").addDocument(from: notification) { error in
+                    let docRef = db.collection("driverNotifications").document()
+                    try docRef.setData(from: notification) { error in
                         if let error = error {
                             continuation.resume(throwing: error)
                         } else {
