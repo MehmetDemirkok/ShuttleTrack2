@@ -309,7 +309,7 @@ struct AddEditTripView: View {
                                 
                                 Picker("Transfer Durumu", selection: $status) {
                                     ForEach(Trip.TripStatus.allCases, id: \.self) { status in
-                                        Text(statusText(for: status)).tag(status)
+                                        Text(status.displayText).tag(status)
                                     }
                                 }
                                 .pickerStyle(SegmentedPickerStyle())
@@ -427,21 +427,6 @@ struct AddEditTripView: View {
                 .font(.headline)
         }
         .foregroundColor(.primary)
-    }
-    
-    private func statusText(for status: Trip.TripStatus) -> String {
-        switch status {
-        case .scheduled:
-            return "Planlandı"
-        case .assigned:
-            return "Atandı"
-        case .inProgress:
-            return "Devam Ediyor"
-        case .completed:
-            return "Tamamlandı"
-        case .cancelled:
-            return "İptal Edildi"
-        }
     }
     
     private var isFormValid: Bool {

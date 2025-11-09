@@ -64,7 +64,7 @@ struct TripAssignmentView: View {
                         // Diğer status butonları
                         ForEach(Trip.TripStatus.allCases, id: \.self) { status in
                             FilterButton(
-                                title: displayName(for: status),
+                                title: status.displayText,
                                 isSelected: selectedStatus == status,
                                 action: { selectedStatus = status }
                             )
@@ -249,18 +249,6 @@ struct TripAssignmentView: View {
         viewModel.fetchVehicles(for: companyId)
         viewModel.fetchDrivers(for: companyId)
     }
-
-    private func displayName(for status: Trip.TripStatus) -> String {
-        switch status {
-        case .scheduled: return "Planlandı"
-        case .assigned: return "Atandı"
-        case .inProgress: return "Devam Ediyor"
-        case .completed: return "Tamamlandı"
-        case .cancelled: return "İptal Edildi"
-        }
-    }
-
-    
 }
 
 // Araçlar sayfasına benzer kompakt kart görünümü
@@ -652,7 +640,7 @@ struct TripDetailView: View {
                             Menu {
                                 ForEach(Trip.TripStatus.allCases, id: \.self) { status in
                                     if status != trip.status {
-                                        Button(status.rawValue) {
+                                        Button(status.displayText) {
                                             viewModel.updateTripStatus(trip, status: status)
                                         }
                                     }

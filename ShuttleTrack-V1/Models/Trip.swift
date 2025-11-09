@@ -43,6 +43,21 @@ struct Trip: Identifiable, Codable, @unchecked Sendable {
         case inProgress = "in_progress"
         case completed = "completed"
         case cancelled = "cancelled"
+        
+        var displayText: String {
+            switch self {
+            case .scheduled:
+                return "Planlandı"
+            case .assigned:
+                return "Atandı"
+            case .inProgress:
+                return "Devam Ediyor"
+            case .completed:
+                return "Tamamlandı"
+            case .cancelled:
+                return "İptal Edildi"
+            }
+        }
     }
     
     // Türkçe kısaltmalar için computed property
