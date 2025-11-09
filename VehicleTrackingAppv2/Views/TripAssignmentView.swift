@@ -488,6 +488,7 @@ struct TripDetailView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var showingEditSheet = false
     @State private var showingStatusMenu = false
+    @State private var showingAssignSheet = false
     
     let trip: Trip
     @ObservedObject var viewModel: TripViewModel
@@ -607,6 +608,28 @@ struct TripDetailView: View {
                             .fontWeight(.bold)
                         
                         VStack(spacing: 12) {
+                            // İş Atama Butonu (sadece atanmamışsa veya durum scheduled ise)
+                            if trip.driverId.isEmpty || trip.status == .scheduled {
+                                Button(action: { showingAssignSheet = true }) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "person.badge.plus")
+                                            .font(.title3)
+                                            .foregroundColor(.white)
+                                        Text("Sürücüye Ata")
+                                            .font(.headline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.white)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.white.opacity(0.7))
+                                    }
+                                    .padding(.vertical, 16)
+                                    .padding(.horizontal, 20)
+                                    .background(Color.green)
+                                    .cornerRadius(12)
+                                }
+                            }
+                            
                             Button(action: { showingEditSheet = true }) {
                                 HStack(spacing: 12) {
                                     Image(systemName: "pencil")
@@ -683,6 +706,9 @@ struct TripDetailView: View {
             .sheet(isPresented: $showingEditSheet) {
                 AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
             }
+            .sheet(isPresented: $showingAssignSheet) {
+                AssignTripSheet(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
+            }
         }
     }
     
@@ -710,6 +736,295 @@ struct TripDetailView: View {
         return formatter.string(from: NSNumber(value: amount)) ?? String(format: "₺%.0f", amount)
     }
 }
+
+// MARK: - Assign Trip Sheet
+struct AssignTripSheet: View {
+    @Environment(\.presentationMode) var presentationMode
+    let trip: Trip
+    @ObservedObject var viewModel: TripViewModel
+    let appViewModel: AppViewModel
+    
+    @StateObject private var driverViewModel = DriverViewModel()
+    @StateObject private var vehicleViewModel = VehicleViewModel()
+    @State private var selectedDriverId: String? = nil
+    @State private var selectedVehicleId: String? = nil
+    @State private var isSaving = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                // İş Bilgileri
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("İş Bilgileri")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(trip.tripNumber)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        
+                        Text("\(trip.pickupLocation.name) → \(trip.dropoffLocation.name)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 16) {
+                            Label {
+                                Text(DateFormatter.localizedString(from: trip.scheduledPickupTime, dateStyle: .none, timeStyle: .short))
+                                    .font(.caption)
+                            } icon: {
+                                Image(systemName: "clock")
+                                    .font(.caption)
+                            }
+                            
+                            Label {
+                                Text("\(trip.passengerCount) kişi")
+                                    .font(.caption)
+                            } icon: {
+                                Image(systemName: "person.2")
+                                    .font(.caption)
+                            }
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(12)
+                }
+                .padding(.top, 20)
+                
+                if driverViewModel.isLoading || vehicleViewModel.isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                        Text("Yükleniyor...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // Sürücü Seçimi
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sürücü Seçimi")
+                            .font(.headline)
+                            .padding(.horizontal, 20)
+                        
+                        if driverViewModel.drivers.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "person.slash")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray)
+                                Text("Henüz sürücü eklenmemiş")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            List {
+                                ForEach(driverViewModel.drivers.filter { $0.isActive && $0.id != nil }) { driver in
+                                    Button {
+                                        selectedDriverId = driver.id
+                                        // Sürücüye atanmış araç varsa otomatik seç
+                                        if let assignedVehicleId = driver.assignedVehicleId {
+                                            selectedVehicleId = assignedVehicleId
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: (selectedDriverId != nil && selectedDriverId == driver.id) ? "checkmark.circle.fill" : "circle")
+                                                .foregroundColor(.blue)
+                                            
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(driver.fullName)
+                                                    .font(.body)
+                                                    .foregroundColor(.primary)
+                                                
+                                                Text(driver.phoneNumber)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                                
+                                                if let assignedVehicleId = driver.assignedVehicleId,
+                                                   let vehicle = vehicleViewModel.vehicles.first(where: {
+                                                       guard let vehicleId = $0.id else { return false }
+                                                       return vehicleId == assignedVehicleId
+                                                   }) {
+                                                    Text("Araç: \(vehicle.displayName)")
+                                                        .font(.caption2)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                            
+                                            Spacer()
+                                        }
+                                    }
+                                }
+                            }
+                            .listStyle(InsetGroupedListStyle())
+                        }
+                    }
+                    
+                    // Araç Seçimi (opsiyonel)
+                    if selectedDriverId != nil {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Araç Seçimi (Opsiyonel)")
+                                .font(.headline)
+                                .padding(.horizontal, 20)
+                            
+                            if vehicleViewModel.vehicles.isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "car.slash")
+                                        .font(.system(size: 40))
+                                        .foregroundColor(.gray)
+                                    Text("Henüz araç eklenmemiş")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
+                            } else {
+                                List {
+                                    // Araç seçimi yok seçeneği
+                                    Button {
+                                        selectedVehicleId = nil
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: selectedVehicleId == nil ? "checkmark.circle.fill" : "circle")
+                                                .foregroundColor(.blue)
+                                            Text("Araç Seçme")
+                                                .font(.body)
+                                        }
+                                    }
+                                    
+                                    // Seçili sürücüye atanmış araç
+                                    if let selectedDriver = driverViewModel.drivers.first(where: { $0.id == selectedDriverId }),
+                                       let assignedVehicleId = selectedDriver.assignedVehicleId {
+                                        Button {
+                                            selectedVehicleId = assignedVehicleId
+                                        } label: {
+                                            HStack {
+                                                Image(systemName: (selectedVehicleId != nil && selectedVehicleId == assignedVehicleId) ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(.blue)
+                                                
+                                                if let vehicle = vehicleViewModel.vehicles.first(where: {
+                                                    guard let vehicleId = $0.id else { return false }
+                                                    return vehicleId == assignedVehicleId
+                                                }) {
+                                                    VStack(alignment: .leading) {
+                                                        Text(vehicle.displayName)
+                                                            .font(.body)
+                                                        Text("Sürücüye Atanmış")
+                                                            .font(.caption)
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                } else {
+                                                    Text("Sürücüye Atanmış Araç")
+                                                        .font(.body)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Diğer araçlar
+                                    ForEach(vehicleViewModel.vehicles.filter { vehicle in
+                                        guard let vehicleId = vehicle.id else { return false }
+                                        guard let selectedDriver = driverViewModel.drivers.first(where: { $0.id == selectedDriverId }) else { return true }
+                                        // Sürücüye atanmış araç değilse göster
+                                        return vehicleId != selectedDriver.assignedVehicleId && vehicle.isActive
+                                    }) { vehicle in
+                                        Button {
+                                            selectedVehicleId = vehicle.id
+                                        } label: {
+                                            HStack {
+                                                Image(systemName: (selectedVehicleId != nil && selectedVehicleId == vehicle.id) ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(.blue)
+                                                
+                                                VStack(alignment: .leading) {
+                                                    Text(vehicle.displayName)
+                                                        .font(.body)
+                                                    Text("Kapasite: \(vehicle.capacity)")
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                .listStyle(InsetGroupedListStyle())
+                                .frame(height: 200)
+                            }
+                        }
+                    }
+                    
+                    if !errorMessage.isEmpty {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.red)
+                            Text(errorMessage)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
+                
+                Spacer()
+            }
+            .navigationTitle("İş Ata")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("Kapat") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: Button(isSaving ? "Kaydediliyor..." : "Kaydet") {
+                    saveAssignment()
+                }
+                .disabled(isSaving || selectedDriverId == nil)
+            )
+            .onAppear {
+                loadData()
+            }
+        }
+    }
+    
+    private func loadData() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        
+        driverViewModel.fetchDrivers(for: companyId)
+        vehicleViewModel.fetchVehicles(for: companyId)
+        
+        // Eğer iş zaten bir sürücüye atanmışsa, o sürücüyü seç
+        if !trip.driverId.isEmpty {
+            selectedDriverId = trip.driverId
+        }
+        
+        // Eğer iş zaten bir araca atanmışsa, o aracı seç
+        if !trip.vehicleId.isEmpty {
+            selectedVehicleId = trip.vehicleId
+        }
+    }
+    
+    private func saveAssignment() {
+        guard let driverId = selectedDriverId else { return }
+        
+        isSaving = true
+        errorMessage = ""
+        
+        // İşi sürücüye ve araca ata
+        viewModel.assignTrip(trip, vehicleId: selectedVehicleId, driverId: driverId)
+        
+        // Kısa bir gecikme ekle ve kapat
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            isSaving = false
+            if viewModel.errorMessage.isEmpty {
+                presentationMode.wrappedValue.dismiss()
+            } else {
+                errorMessage = viewModel.errorMessage
+            }
+        }
+    }
+}
+
 struct TripAssignmentView_Previews: PreviewProvider {
     static var previews: some View {
         TripAssignmentView()
