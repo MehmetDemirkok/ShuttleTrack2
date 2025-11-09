@@ -6,6 +6,7 @@ struct DriverDashboardView: View {
     @StateObject private var tripViewModel = TripViewModel()
     @StateObject private var driverViewModel = DriverViewModel()
     @StateObject private var vehicleViewModel = VehicleViewModel()
+    @StateObject private var notificationViewModel = NotificationViewModel()
     
     @State private var isLoading = true
     @State private var errorMessage = ""
@@ -15,6 +16,7 @@ struct DriverDashboardView: View {
     @State private var showCompleteTripConfirmation = false
     @State private var showCancelTripConfirmation = false
     @State private var selectedTripForAction: Trip? = nil
+    @State private var showNotifications = false
     
     var body: some View {
         NavigationView {
@@ -97,6 +99,81 @@ struct DriverDashboardView: View {
                                 .padding(.horizontal, 20)
                             }
                             
+                            // Sürücü Bildirimleri
+                            if !notificationViewModel.notifications.isEmpty {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Text("Bildirimler")
+                                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                        
+                                        Spacer()
+                                        
+                                        if notificationViewModel.unreadCount > 0 {
+                                            Button(action: {
+                                                markAllNotificationsAsRead()
+                                            }) {
+                                                Text("Tümünü Okundu İşaretle")
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                                            }
+                                        }
+                                        
+                                        Button(action: {
+                                            showNotifications = true
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "bell.fill")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                if notificationViewModel.unreadCount > 0 {
+                                                    Text("\(notificationViewModel.unreadCount)")
+                                                        .font(.system(size: 12, weight: .bold))
+                                                        .foregroundColor(.white)
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.red)
+                                                        .clipShape(Capsule())
+                                                }
+                                            }
+                                            .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                    
+                                    // Son 3 bildirim (özet)
+                                    ForEach(notificationViewModel.notifications.prefix(3)) { notification in
+                                        DriverNotificationCard(
+                                            notification: notification,
+                                            onTap: {
+                                                notificationViewModel.markAsRead(notification)
+                                            },
+                                            onDelete: {
+                                                notificationViewModel.deleteNotification(notification)
+                                            }
+                                        )
+                                        .padding(.horizontal, 20)
+                                    }
+                                    
+                                    if notificationViewModel.notifications.count > 3 {
+                                        Button(action: {
+                                            showNotifications = true
+                                        }) {
+                                            Text("Tümünü Gör (\(notificationViewModel.notifications.count))")
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 12)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .fill(ShuttleTrackTheme.Colors.primaryBlue.opacity(0.1))
+                                                )
+                                        }
+                                        .padding(.horizontal, 20)
+                                    }
+                                }
+                                .padding(.top, 8)
+                            }
+                            
                             // Araç Bilgileri
                             if let vehicle = assignedVehicle() {
                                 ModernVehicleCard(vehicle: vehicle)
@@ -153,6 +230,27 @@ struct DriverDashboardView: View {
             .navigationTitle("Sürücü Paneli")
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Bildirim İkonu (Badge'li)
+                    Button {
+                        showNotifications = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: notificationViewModel.unreadCount > 0 ? "bell.fill" : "bell")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                            
+                            if notificationViewModel.unreadCount > 0 {
+                                Text("\(notificationViewModel.unreadCount)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(4)
+                                    .background(Color.red)
+                                    .clipShape(Circle())
+                                    .offset(x: 8, y: -8)
+                            }
+                        }
+                    }
+                    
                     Button {
                         showProfile = true
                     } label: {
@@ -168,6 +266,7 @@ struct DriverDashboardView: View {
         }
         .onAppear {
             loadData()
+            loadNotifications()
         }
         .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
             if newValue != nil {
@@ -250,6 +349,56 @@ struct DriverDashboardView: View {
                 print("❌ TripViewModel error: \(newValue)")
             }
         }
+        .sheet(isPresented: $showNotifications) {
+            DriverNotificationsView(viewModel: notificationViewModel)
+        }
+    }
+    
+    private func loadNotifications() {
+        // Sürücü ID'sini al
+        var driverId: String?
+        
+        if let currentDriverId = driverViewModel.currentDriver?.id {
+            driverId = currentDriverId
+        } else if let phone = appViewModel.currentUserProfile?.phone,
+                  let driver = driverViewModel.drivers.first(where: { 
+                      normalizePhone($0.phoneNumber) == normalizePhone(phone) 
+                  }),
+                  let driverIdValue = driver.id {
+            driverId = driverIdValue
+        }
+        
+        guard let driverId = driverId,
+              let companyId = appViewModel.currentCompany?.id else {
+            return
+        }
+        
+        // Bildirim izni iste
+        NotificationService.shared.requestAuthorizationIfNeeded()
+        
+        // Bildirimleri yükle
+        notificationViewModel.fetchNotifications(for: driverId, companyId: companyId)
+    }
+    
+    private func markAllNotificationsAsRead() {
+        var driverId: String?
+        
+        if let currentDriverId = driverViewModel.currentDriver?.id {
+            driverId = currentDriverId
+        } else if let phone = appViewModel.currentUserProfile?.phone,
+                  let driver = driverViewModel.drivers.first(where: { 
+                      normalizePhone($0.phoneNumber) == normalizePhone(phone) 
+                  }),
+                  let driverIdValue = driver.id {
+            driverId = driverIdValue
+        }
+        
+        guard let driverId = driverId,
+              let companyId = appViewModel.currentCompany?.id else {
+            return
+        }
+        
+        notificationViewModel.markAllAsRead(for: driverId, companyId: companyId)
     }
     
     private func loadData() {
@@ -1011,6 +1160,32 @@ struct ModernNotificationCard: View {
 struct ModernVehicleCard: View {
     let vehicle: Vehicle
     
+    private func formatInsuranceText(for vehicle: Vehicle) -> String {
+        let days = vehicle.daysUntilInsuranceExpiry
+        if days < 0 {
+            return "Sigorta: Süresi Dolmuş"
+        } else if days == 0 {
+            return "Sigorta: Bugün Bitiyor"
+        } else if days == 1 {
+            return "Sigorta: 1 gün kaldı"
+        } else {
+            return "Sigorta: \(days) gün kaldı"
+        }
+    }
+    
+    private func formatInspectionText(for vehicle: Vehicle) -> String {
+        let days = vehicle.daysUntilInspectionExpiry
+        if days < 0 {
+            return "Muayene: Süresi Dolmuş"
+        } else if days == 0 {
+            return "Muayene: Bugün Bitiyor"
+        } else if days == 1 {
+            return "Muayene: 1 gün kaldı"
+        } else {
+            return "Muayene: \(days) gün kaldı"
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
@@ -1054,12 +1229,12 @@ struct ModernVehicleCard: View {
                 HStack(spacing: 12) {
                     ModernStatusChip(
                         icon: "shield.fill",
-                        text: "Sigorta: \(vehicle.insuranceStatus)",
+                        text: formatInsuranceText(for: vehicle),
                         color: vehicle.insuranceStatusColor
                     )
                     ModernStatusChip(
                         icon: "wrench.and.screwdriver.fill",
-                        text: "Muayene: \(vehicle.inspectionStatus)",
+                        text: formatInspectionText(for: vehicle),
                         color: vehicle.inspectionStatusColor
                     )
                 }
@@ -1210,6 +1385,199 @@ private extension Label where Title == Text, Icon == Image {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd.MM.yyyy HH:mm"
         self.init { Text(formatter.string(from: date)) } icon: { Image(systemName: systemImage) }
+    }
+}
+
+// MARK: - Driver Notification Card
+struct DriverNotificationCard: View {
+    let notification: DriverNotification
+    let onTap: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(notification.color.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: notification.icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(notification.color)
+                }
+                
+                // Content
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(notification.title)
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                        
+                        Spacer()
+                        
+                        if !notification.isRead {
+                            Circle()
+                                .fill(ShuttleTrackTheme.Colors.primaryBlue)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                    
+                    Text(notification.message)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    HStack(spacing: 8) {
+                        Text(formatNotificationDate(notification.createdAt))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+                        
+                        if notification.isRead {
+                            Text("• Okundu")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+                        }
+                    }
+                }
+                
+                // Delete button
+                Button(action: {
+                    onDelete()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText.opacity(0.6))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(notification.isRead ? ShuttleTrackTheme.Colors.cardBackground : ShuttleTrackTheme.Colors.primaryBlue.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(notification.isRead ? ShuttleTrackTheme.Colors.borderColor.opacity(0.5) : notification.color.opacity(0.3), lineWidth: notification.isRead ? 1 : 1.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func formatNotificationDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+            return "Bugün \(formatter.string(from: date))"
+        } else if calendar.isDateInYesterday(date) {
+            formatter.dateFormat = "HH:mm"
+            return "Dün \(formatter.string(from: date))"
+        } else {
+            formatter.dateFormat = "dd.MM.yyyy HH:mm"
+            return formatter.string(from: date)
+        }
+    }
+}
+
+// MARK: - Driver Notifications View
+struct DriverNotificationsView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @ObservedObject var viewModel: NotificationViewModel
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    if viewModel.notifications.isEmpty {
+                        EmptyStateView(
+                            icon: "bell.slash.fill",
+                            title: "Bildirim Yok",
+                            message: "Henüz bildiriminiz bulunmuyor"
+                        )
+                        .padding(.top, 100)
+                    } else {
+                        // Okunmamış bildirimler
+                        let unreadNotifications = viewModel.notifications.filter { !$0.isRead }
+                        if !unreadNotifications.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Okunmamış (\(unreadNotifications.count))")
+                                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        if let first = unreadNotifications.first {
+                                            viewModel.markAllAsRead(for: first.driverId, companyId: first.companyId)
+                                        }
+                                    }) {
+                                        Text("Tümünü Okundu İşaretle")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                
+                                ForEach(unreadNotifications) { notification in
+                                    DriverNotificationCard(
+                                        notification: notification,
+                                        onTap: {
+                                            viewModel.markAsRead(notification)
+                                        },
+                                        onDelete: {
+                                            viewModel.deleteNotification(notification)
+                                        }
+                                    )
+                                    .padding(.horizontal, 20)
+                                }
+                            }
+                            .padding(.top, 8)
+                        }
+                        
+                        // Okunmuş bildirimler
+                        let readNotifications = viewModel.notifications.filter { $0.isRead }
+                        if !readNotifications.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Okunmuş")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, unreadNotifications.isEmpty ? 0 : 16)
+                                
+                                ForEach(readNotifications) { notification in
+                                    DriverNotificationCard(
+                                        notification: notification,
+                                        onTap: {
+                                            // Zaten okunmuş, sadece detay göster
+                                        },
+                                        onDelete: {
+                                            viewModel.deleteNotification(notification)
+                                        }
+                                    )
+                                    .padding(.horizontal, 20)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .background(ShuttleTrackTheme.Colors.background)
+            .navigationTitle("Bildirimler")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Kapat") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
+        }
     }
 }
 

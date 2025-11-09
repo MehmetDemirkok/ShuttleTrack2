@@ -19,7 +19,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A80A7ED02EAFC7870014A1E6 /* VehicleTrackingAppv2 */ = {
+		A80A7ED02EAFC7870014A1E6 /* ShuttleTrack-V1 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "ShuttleTrack-V1";
 			sourceTree = "<group>";
@@ -45,7 +45,7 @@
 		A80A7EC52EAFC7870014A1E6 = {
 			isa = PBXGroup;
 			children = (
-				A80A7ED02EAFC7870014A1E6 /* VehicleTrackingAppv2 */,
+				A80A7ED02EAFC7870014A1E6 /* ShuttleTrack-V1 */,
 				A80A7ECF2EAFC7870014A1E6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -74,7 +74,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A80A7ED02EAFC7870014A1E6 /* VehicleTrackingAppv2 */,
+				A80A7ED02EAFC7870014A1E6 /* ShuttleTrack-V1 */,
 			);
 			name = VehicleTrackingAppv2;
 			packageProductDependencies = (

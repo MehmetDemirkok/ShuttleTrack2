@@ -265,6 +265,46 @@ service cloud.firestore {
         request.resource.data.companyId == getUserCompanyId();
     }
     
+    // Driver Notifications Collection Rules
+    match /driverNotifications/{notificationId} {
+      // Okuma: Sürücüler sadece kendi bildirimlerini okuyabilir
+      allow read: if isAuthenticated() && 
+        hasUserProfile() && 
+        (
+          (isDriver() && resource.data.driverId != null && 
+           exists(/databases/$(database)/documents/drivers/$(resource.data.driverId)) &&
+           get(/databases/$(database)/documents/drivers/$(resource.data.driverId)).data.authUserId == request.auth.uid) ||
+          (isCompanyAdmin() && resource.data.companyId == getUserCompanyId()) ||
+          isOwner()
+        );
+      
+      // Oluşturma: Sadece admin kendi şirketinin sürücülerine bildirim gönderebilir
+      allow create: if (isCompanyAdmin() && 
+        request.resource.data.companyId == getUserCompanyId() &&
+        request.resource.data.driverId != null &&
+        exists(/databases/$(database)/documents/drivers/$(request.resource.data.driverId)) &&
+        get(/databases/$(database)/documents/drivers/$(request.resource.data.driverId)).data.companyId == getUserCompanyId()) || isOwner();
+      
+      // Güncelleme: Sadece sürücüler kendi bildirimlerini okundu olarak işaretleyebilir
+      allow update: if (isDriver() && 
+        resource.data.driverId != null &&
+        exists(/databases/$(database)/documents/drivers/$(resource.data.driverId)) &&
+        get(/databases/$(database)/documents/drivers/$(resource.data.driverId)).data.authUserId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']) &&
+        request.resource.data.driverId == resource.data.driverId &&
+        request.resource.data.companyId == resource.data.companyId) ||
+        (isCompanyAdmin() && resource.data.companyId == getUserCompanyId()) ||
+        isOwner();
+      
+      // Silme: Sürücüler kendi bildirimlerini silebilir, admin tüm şirket bildirimlerini silebilir
+      allow delete: if (isDriver() && 
+        resource.data.driverId != null &&
+        exists(/databases/$(database)/documents/drivers/$(resource.data.driverId)) &&
+        get(/databases/$(database)/documents/drivers/$(resource.data.driverId)).data.authUserId == request.auth.uid) ||
+        (isCompanyAdmin() && resource.data.companyId == getUserCompanyId()) ||
+        isOwner();
+    }
+    
     // Default deny rule - yukarıdaki kurallara uymayan tüm istekleri reddet
     match /{document=**} {
       allow read, write: if false;

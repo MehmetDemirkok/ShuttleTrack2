@@ -93,6 +93,19 @@ final class NotificationService {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
+    
+    // MARK: - Push Notification for Driver Notifications
+    func sendPushNotification(title: String, body: String, identifier: String) {
+        // Bildirim izni kontrolü
+        requestAuthorizationIfNeeded { [weak self] granted in
+            guard granted else {
+                print("⚠️ Notification permission not granted")
+                return
+            }
+            
+            self?.scheduleImmediateNotification(identifier: identifier, title: title, body: body)
+        }
+    }
 }
 
 

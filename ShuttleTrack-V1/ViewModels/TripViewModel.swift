@@ -449,6 +449,7 @@ class TripViewModel: ObservableObject {
     }
     
     func assignTrip(_ trip: Trip, vehicleId: String?, driverId: String?) {
+        let previousDriverId = trip.driverId
         var updatedTrip = trip
         updatedTrip.vehicleId = vehicleId ?? ""
         updatedTrip.driverId = driverId ?? ""
@@ -456,6 +457,19 @@ class TripViewModel: ObservableObject {
         updatedTrip.updatedAt = Date()
         
         updateTrip(updatedTrip)
+        
+        // Yeni sürücüye bildirim gönder
+        if let newDriverId = driverId, 
+           !newDriverId.isEmpty,
+           newDriverId != previousDriverId {
+            Task { @MainActor in
+                await DriverNotificationService.shared.sendTripAssignedNotification(
+                    to: newDriverId,
+                    companyId: updatedTrip.companyId,
+                    trip: updatedTrip
+                )
+            }
+        }
     }
     
     func getAvailableVehicles() -> [Vehicle] {

@@ -226,10 +226,35 @@ class DriverViewModel: ObservableObject {
     }
     
     func assignVehicleToDriver(_ driver: Driver, vehicleId: String?) {
+        let previousVehicleId = driver.assignedVehicleId
         var updatedDriver = driver
         updatedDriver.assignedVehicleId = vehicleId
         updatedDriver.updatedAt = Date()
         
         updateDriver(updatedDriver)
+        
+        // Yeni araç atandıysa bildirim gönder
+        if let newVehicleId = vehicleId,
+           newVehicleId != previousVehicleId,
+           let driverId = driver.id {
+            Task { @MainActor in
+                do {
+                    // Vehicle bilgisini almak için Firestore'dan çek (async/await)
+                    let db = Firestore.firestore()
+                    let document = try await db.collection("vehicles").document(newVehicleId).getDocument()
+                    
+                    if document.exists,
+                       let vehicle = try? document.data(as: Vehicle.self) {
+                        await DriverNotificationService.shared.sendVehicleAssignedNotification(
+                            to: driverId,
+                            companyId: driver.companyId,
+                            vehicle: vehicle
+                        )
+                    }
+                } catch {
+                    print("❌ Error fetching vehicle for notification: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
