@@ -41,88 +41,113 @@ struct DriverDashboardView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    List {
-                        // Başlık ve özet
-                        Section {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(greetingTitle())
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
-                                Text("Atanan İşler")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Modern Header Section
+                            VStack(alignment: .leading, spacing: 16) {
+                                // Greeting
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(greetingTitle())
+                                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    
+                                    Text("Atanan İşler Özeti")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                                }
+                                
+                                // Modern Stat Cards
                                 HStack(spacing: 12) {
-                                    StatPill(title: "Bugün", value: "\(todayTrips().count)", color: .blue)
-                                    StatPill(title: "Devam", value: "\(inProgressTrips().count)", color: .green)
-                                    StatPill(title: "Bekleyen", value: "\(assignedTrips().count)", color: .orange)
-                                    StatPill(title: "Tamamlanan", value: "\(completedTrips().count)", color: .purple)
+                                    ModernStatCard(
+                                        title: "Bugün",
+                                        value: "\(todayTrips().count)",
+                                        icon: "calendar",
+                                        color: .blue
+                                    )
+                                    ModernStatCard(
+                                        title: "Devam",
+                                        value: "\(inProgressTrips().count)",
+                                        icon: "play.circle.fill",
+                                        color: .green
+                                    )
+                                    ModernStatCard(
+                                        title: "Bekleyen",
+                                        value: "\(assignedTrips().count)",
+                                        icon: "clock.fill",
+                                        color: .orange
+                                    )
+                                    ModernStatCard(
+                                        title: "Tamamlanan",
+                                        value: "\(completedTrips().count)",
+                                        icon: "checkmark.circle.fill",
+                                        color: .purple
+                                    )
                                 }
-                                .padding(.top, 4)
                             }
-                            .listRowBackground(Color.clear)
-                        }
-                        .listRowSeparator(.hidden)
-                        
-                        // Bildirimler ve Uyarılar
-                        if !notifications().isEmpty {
-                            Section(header: Text("Bildirimler")) {
-                                ForEach(notifications(), id: \.self) { note in
-                                    Text(note)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .padding(.vertical, 4)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                            
+                            // Bildirimler ve Uyarılar
+                            if !notifications().isEmpty {
+                                VStack(spacing: 8) {
+                                    ForEach(notifications(), id: \.self) { note in
+                                        ModernNotificationCard(message: note)
+                                    }
                                 }
+                                .padding(.horizontal, 20)
                             }
-                        }
-                        
-                        // Araç Bilgileri
-                        if let vehicle = assignedVehicle() {
-                            Section(header: Text("Araç Bilgileri")) {
-                                ShuttleTrackCard {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack {
-                                            Image(systemName: "car.fill")
-                                                .foregroundColor(ShuttleTrackTheme.Colors.vehicleIcon)
-                                            Text(vehicle.displayName)
-                                                .font(.headline)
-                                        }
-                                        HStack(spacing: 12) {
-                                            InfoChip(icon: "number", text: vehicle.plateNumber)
-                                            InfoChip(icon: "person.3.fill", text: "\(vehicle.capacity) kişilik")
-                                            InfoChip(icon: "paintpalette.fill", text: vehicle.color)
-                                        }
-                                        .padding(.top, 4)
-                                        HStack(spacing: 12) {
-                                            StatusChip(icon: "shield.fill", text: "Sigorta: \(vehicle.insuranceStatus)", color: vehicle.insuranceStatusColor)
-                                            StatusChip(icon: "wrench.and.screwdriver.fill", text: "Muayene: \(vehicle.inspectionStatus)", color: vehicle.inspectionStatusColor)
-                                        }
+                            
+                            // Araç Bilgileri
+                            if let vehicle = assignedVehicle() {
+                                ModernVehicleCard(vehicle: vehicle)
+                                    .padding(.horizontal, 20)
+                            }
+                            
+                            // Atanan İşler
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Atanan İşler")
+                                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                                
+                                if getAssignedTrips().isEmpty {
+                                    EmptyStateView(
+                                        icon: "list.bullet.clipboard",
+                                        title: "Henüz iş atanmamış",
+                                        message: "Size atanan işler burada görünecek"
+                                    )
+                                    .padding(.horizontal, 20)
+                                } else {
+                                    ForEach(getAssignedTrips()) { trip in
+                                        DriverTripCard(
+                                            trip: trip,
+                                            onStart: {
+                                                showStartTripConfirmation = true
+                                                selectedTripForAction = trip
+                                            },
+                                            onComplete: {
+                                                showCompleteTripConfirmation = true
+                                                selectedTripForAction = trip
+                                            },
+                                            onCancel: {
+                                                showCancelTripConfirmation = true
+                                                selectedTripForAction = trip
+                                            }
+                                        )
+                                        .padding(.horizontal, 20)
                                     }
                                 }
                             }
+                            .padding(.top, 8)
+                            
+                            Spacer(minLength: 20)
                         }
-                        
-                        // Atanan İşler
-                        Section(header: Text("Atanan İşler")) {
-                            ForEach(getAssignedTrips()) { trip in
-                                DriverTripCard(
-                                    trip: trip,
-                                    onStart: {
-                                        showStartTripConfirmation = true
-                                        selectedTripForAction = trip
-                                    },
-                                    onComplete: {
-                                        showCompleteTripConfirmation = true
-                                        selectedTripForAction = trip
-                                    },
-                                    onCancel: {
-                                        showCancelTripConfirmation = true
-                                        selectedTripForAction = trip
-                                    }
-                                )
-                            }
-                        }
+                        .padding(.vertical, 16)
                     }
-                    .listStyle(InsetGroupedListStyle())
+                    .background(ShuttleTrackTheme.Colors.background)
                 }
             }
             .navigationTitle("Sürücü Paneli")
@@ -370,208 +395,240 @@ struct DriverTripCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header - İş Numarası ve Durum
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(trip.tripNumber)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                     
                     // Kategori badge
                     if let category = trip.category {
                         Text(category.titleText)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(4)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(ShuttleTrackTheme.Colors.secondaryText.opacity(0.1))
+                            )
                     }
                 }
                 
                 Spacer()
                 
                 // Durum badge
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Circle()
                         .fill(trip.statusColor)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 10, height: 10)
                     Text(trip.statusText)
-                        .font(.caption)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(trip.statusColor)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(trip.statusColor.opacity(0.1))
-                .cornerRadius(12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(trip.statusColor.opacity(0.12))
+                )
             }
             
             Divider()
+                .background(ShuttleTrackTheme.Colors.borderColor)
+                .padding(.vertical, 4)
             
             // Lokasyon Bilgileri
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 // Alış Noktası
-                HStack(spacing: 8) {
-                    Image(systemName: "mappin.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Alış")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ShuttleTrackTheme.Colors.pickupIcon.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(ShuttleTrackTheme.Colors.pickupIcon)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Alış Noktası")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                         Text(trip.pickupLocation.name)
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 
                 // Ok işareti
                 HStack(spacing: 4) {
                     Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
-                        .frame(width: 2, height: 12)
-                        .padding(.leading, 6)
+                        .fill(ShuttleTrackTheme.Colors.borderColor)
+                        .frame(width: 2, height: 16)
+                        .padding(.leading, 20)
                 }
                 
                 // Bırakış Noktası
-                HStack(spacing: 8) {
-                    Image(systemName: "mappin.circle.fill")
-                        .foregroundColor(.orange)
-                        .font(.caption)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Bırakış")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ShuttleTrackTheme.Colors.dropoffIcon.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundColor(ShuttleTrackTheme.Colors.dropoffIcon)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Bırakış Noktası")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                         Text(trip.dropoffLocation.name)
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
             
             Divider()
+                .background(ShuttleTrackTheme.Colors.borderColor)
+                .padding(.vertical, 4)
             
             // Detay Bilgileri
-            HStack(spacing: 16) {
+            HStack(spacing: 20) {
                 // Tarih/Saat
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(ShuttleTrackTheme.Colors.timeIcon)
                         Text("Alış Saati")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Text(formatTime(trip.scheduledPickupTime))
-                            .font(.caption)
-                            .foregroundColor(.primary)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                     }
+                    Text(formatTime(trip.scheduledPickupTime))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
                 
                 Spacer()
                 
                 // Yolcu Sayısı
-                HStack(spacing: 4) {
-                    Image(systemName: "person.2.fill")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(ShuttleTrackTheme.Colors.personIcon)
                         Text("Yolcu")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Text("\(trip.passengerCount)")
-                            .font(.caption)
-                            .foregroundColor(.primary)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                     }
+                    Text("\(trip.passengerCount)")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 }
                 
                 // Ücret (varsa)
                 if let fare = trip.fare {
                     Spacer()
-                    HStack(spacing: 4) {
-                        Image(systemName: "turkishlirasign.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "turkishlirasign.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(ShuttleTrackTheme.Colors.priceIcon)
                             Text("Ücret")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            Text(formatCurrency(fare))
-                                .font(.caption)
-                                .foregroundColor(.primary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                         }
+                        Text(formatCurrency(fare))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                     }
                 }
             }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(ShuttleTrackTheme.Colors.cardBackground)
+            )
             
             // Zaman Takibi Bölümü
             Divider()
-            VStack(alignment: .leading, spacing: 12) {
+                .background(ShuttleTrackTheme.Colors.borderColor)
+                .padding(.vertical, 4)
+            
+            VStack(alignment: .leading, spacing: 16) {
                 Text("Zaman Takibi")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                 
                 // Planlanan Zamanlar
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "calendar")
-                            .foregroundColor(.orange)
-                            .font(.caption)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "calendar.fill")
+                            .foregroundColor(ShuttleTrackTheme.Colors.warning)
+                            .font(.system(size: 14, weight: .semibold))
                         Text("Planlanan")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                     }
                     
-                    HStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 4) {
+                    HStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "arrow.up.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.caption2)
+                                    .foregroundColor(ShuttleTrackTheme.Colors.pickupIcon)
+                                    .font(.system(size: 14, weight: .semibold))
                                 Text("Alış")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                             }
                             Text(formatDateTime(trip.scheduledPickupTime))
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                         }
                         
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "arrow.down.circle.fill")
-                                    .foregroundColor(.orange)
-                                    .font(.caption2)
+                                    .foregroundColor(ShuttleTrackTheme.Colors.dropoffIcon)
+                                    .font(.system(size: 14, weight: .semibold))
                                 Text("Bırakış")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                             }
                             Text(formatDateTime(trip.scheduledDropoffTime))
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                         }
                     }
                 }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 12)
-                .background(Color.orange.opacity(0.1))
-                .cornerRadius(8)
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ShuttleTrackTheme.Colors.warning.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(ShuttleTrackTheme.Colors.warning.opacity(0.2), lineWidth: 1)
+                )
                 
                 // Gerçekleşen Zamanlar
                 if let actualPickup = trip.actualPickupTime {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                                .font(.caption)
+                                .foregroundColor(ShuttleTrackTheme.Colors.success)
+                                .font(.system(size: 14, weight: .semibold))
                             Text("Gerçekleşen")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
@@ -641,24 +698,35 @@ struct DriverTripCard: View {
                             }
                         }
                     }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(8)
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(ShuttleTrackTheme.Colors.success.opacity(0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(ShuttleTrackTheme.Colors.success.opacity(0.2), lineWidth: 1)
+                    )
                 } else {
                     // Henüz başlamamış
-                    HStack(spacing: 8) {
+                    HStack(spacing: 12) {
                         Image(systemName: "clock.fill")
-                            .foregroundColor(.orange)
-                            .font(.caption)
+                            .foregroundColor(ShuttleTrackTheme.Colors.warning)
+                            .font(.system(size: 16, weight: .semibold))
                         Text("Henüz başlamadı")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
                     }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(ShuttleTrackTheme.Colors.warning.opacity(0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(ShuttleTrackTheme.Colors.warning.opacity(0.2), lineWidth: 1)
+                    )
                 }
             }
             
@@ -666,73 +734,82 @@ struct DriverTripCard: View {
             if trip.status != .completed && trip.status != .cancelled {
                 Divider()
                 VStack(spacing: 10) {
-                    HStack(spacing: 8) {
-                        // Yola Çık butonu (sadece assigned durumunda)
-                        if trip.status == .assigned {
-                            Button(action: onStart) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "play.circle.fill")
-                                        .font(.title3)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Yola Çık")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                        Text("İşe başladığınızı bildirin")
-                                            .font(.caption2)
-                                            .foregroundColor(.white.opacity(0.9))
-                                    }
+                    // Yola Çık butonu (sadece assigned durumunda)
+                    if trip.status == .assigned {
+                        Button(action: {
+                            print("🚀 Yola Çık butonu tıklandı - Trip: \(trip.tripNumber)")
+                            onStart()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "play.circle.fill")
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Yola Çık")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Text("İşe başladığınızı bildirin")
+                                        .font(.caption2)
+                                        .foregroundColor(.white.opacity(0.9))
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color.green, Color.green.opacity(0.8)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(12)
-                                .shadow(color: Color.green.opacity(0.3), radius: 4, x: 0, y: 2)
                             }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.green, Color.green.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: Color.green.opacity(0.25), radius: 8, x: 0, y: 4)
                         }
-                        
-                        // Teslim Et butonu (sadece inProgress durumunda)
-                        if trip.status == .inProgress {
-                            Button(action: onComplete) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.title3)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Teslim Et")
-                                            .font(.subheadline)
-                                            .fontWeight(.semibold)
-                                        Text("İşi tamamladığınızı bildirin")
-                                            .font(.caption2)
-                                            .foregroundColor(.white.opacity(0.9))
-                                    }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    
+                    // Teslim Et butonu (sadece inProgress durumunda)
+                    if trip.status == .inProgress {
+                        Button(action: {
+                            print("✅ Teslim Et butonu tıklandı - Trip: \(trip.tripNumber)")
+                            onComplete()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.title3)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Teslim Et")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Text("İşi tamamladığınızı bildirin")
+                                        .font(.caption2)
+                                        .foregroundColor(.white.opacity(0.9))
                                 }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color.blue, Color.blue.opacity(0.8)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(12)
-                                .shadow(color: Color.blue.opacity(0.3), radius: 4, x: 0, y: 2)
                             }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.blue, Color.blue.opacity(0.8)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: Color.blue.opacity(0.25), radius: 8, x: 0, y: 4)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
                     
                     // İptal butonu (assigned veya inProgress durumunda)
                     if trip.status == .assigned || trip.status == .inProgress {
-                        Button(action: onCancel) {
+                        Button(action: {
+                            print("❌ İptal Et butonu tıklandı - Trip: \(trip.tripNumber)")
+                            onCancel()
+                        }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.title3)
@@ -744,41 +821,96 @@ struct DriverTripCard: View {
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Color.red)
-                            .cornerRadius(10)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.red, Color.red.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(14)
+                            .shadow(color: Color.red.opacity(0.25), radius: 8, x: 0, y: 4)
                         }
+                        .buttonStyle(PlainButtonStyle())
                     }
                 }
             } else if trip.status == .completed {
                 // Tamamlanan iş için bilgi göster
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    Text("İş tamamlandı")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ShuttleTrackTheme.Colors.success.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(ShuttleTrackTheme.Colors.success)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("İş Tamamlandı")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                        Text("Bu iş başarıyla tamamlanmıştır")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                    }
+                    
+                    Spacer()
                 }
-                .padding(.vertical, 4)
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ShuttleTrackTheme.Colors.success.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(ShuttleTrackTheme.Colors.success.opacity(0.2), lineWidth: 1)
+                )
             } else if trip.status == .cancelled {
                 // İptal edilen iş için bilgi göster
-                HStack(spacing: 8) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.red)
-                        .font(.caption)
-                    Text("İş iptal edildi")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ShuttleTrackTheme.Colors.error.opacity(0.15))
+                            .frame(width: 40, height: 40)
+                        
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(ShuttleTrackTheme.Colors.error)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("İş İptal Edildi")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                        Text("Bu iş iptal edilmiştir")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                    }
+                    
+                    Spacer()
                 }
-                .padding(.vertical, 4)
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(ShuttleTrackTheme.Colors.error.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(ShuttleTrackTheme.Colors.error.opacity(0.2), lineWidth: 1)
+                )
             }
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: ShuttleTrackTheme.Shadows.medium, radius: 12, x: 0, y: 4)
+        )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(trip.statusColor.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(trip.statusColor.opacity(0.25), lineWidth: 1.5)
         )
     }
     
@@ -846,7 +978,184 @@ struct DriverTripRow: View {
     }
 }
 
-// Yardımcı küçük bileşenler
+// MARK: - Modern Components
+struct ModernNotificationCard: View {
+    let message: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bell.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(ShuttleTrackTheme.Colors.warning)
+                .frame(width: 24, height: 24)
+            
+            Text(message)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                .fixedSize(horizontal: false, vertical: true)
+            
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(ShuttleTrackTheme.Colors.warning.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(ShuttleTrackTheme.Colors.warning.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+struct ModernVehicleCard: View {
+    let vehicle: Vehicle
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(ShuttleTrackTheme.Colors.vehicleIcon.opacity(0.15))
+                            .frame(width: 48, height: 48)
+                        
+                        Image(systemName: "car.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(ShuttleTrackTheme.Colors.vehicleIcon)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(vehicle.displayName)
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                        
+                        Text("Atanan Araç")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                    }
+                }
+                
+                Spacer()
+            }
+            
+            Divider()
+                .background(ShuttleTrackTheme.Colors.borderColor)
+            
+            // Vehicle Info Chips
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    ModernInfoChip(icon: "number", text: vehicle.plateNumber, color: .blue)
+                    ModernInfoChip(icon: "person.3.fill", text: "\(vehicle.capacity) kişilik", color: .green)
+                    ModernInfoChip(icon: "paintpalette.fill", text: vehicle.color, color: .orange)
+                }
+                
+                HStack(spacing: 12) {
+                    ModernStatusChip(
+                        icon: "shield.fill",
+                        text: "Sigorta: \(vehicle.insuranceStatus)",
+                        color: vehicle.insuranceStatusColor
+                    )
+                    ModernStatusChip(
+                        icon: "wrench.and.screwdriver.fill",
+                        text: "Muayene: \(vehicle.inspectionStatus)",
+                        color: vehicle.inspectionStatusColor
+                    )
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: ShuttleTrackTheme.Shadows.medium, radius: 12, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(ShuttleTrackTheme.Colors.vehicleIcon.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
+struct ModernInfoChip: View {
+    let icon: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+            Text(text)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.1))
+        )
+    }
+}
+
+struct ModernStatusChip: View {
+    let icon: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+            Text(text)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.15))
+        )
+    }
+}
+
+struct EmptyStateView: View {
+    let icon: String
+    let title: String
+    let message: String
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 64, weight: .light))
+                .foregroundColor(ShuttleTrackTheme.Colors.tertiaryText)
+            
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundColor(ShuttleTrackTheme.Colors.primaryText)
+                
+                Text(message)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(ShuttleTrackTheme.Colors.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ShuttleTrackTheme.Colors.cardBackground)
+        )
+    }
+}
+
+// Yardımcı küçük bileşenler (geriye dönük uyumluluk için)
 struct StatPill: View {
     let title: String
     let value: String

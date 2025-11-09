@@ -191,14 +191,28 @@ struct TripAssignmentView: View {
                 )
             }
             .alert("İşi Sil", isPresented: $showingDeleteAlert) {
-                Button("İptal", role: .cancel) { }
+                Button("İptal", role: .cancel) { 
+                    tripToDelete = nil
+                }
                 Button("Sil", role: .destructive) {
                     if let trip = tripToDelete {
+                        print("🗑️ Silme işlemi başlatılıyor - Trip ID: \(trip.id ?? "nil"), Trip Number: \(trip.tripNumber)")
                         viewModel.deleteTrip(trip)
+                        tripToDelete = nil
                     }
                 }
             } message: {
                 Text("Bu işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            }
+            .onChange(of: viewModel.errorMessage) { oldValue, newValue in
+                // Silme işlemi başarılı olduğunda hata mesajını temizle
+                if !newValue.isEmpty && newValue.contains("Aranan kayıt bulunamadı") {
+                    // Silme işlemi başarılı olmuş olabilir (document zaten silinmiş)
+                    // Bu durumda hata mesajını temizle
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        viewModel.errorMessage = ""
+                    }
+                }
             }
             .sheet(isPresented: $showingExportOptions) {
                 ExportOptionsView(

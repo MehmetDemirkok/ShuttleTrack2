@@ -185,8 +185,8 @@ service cloud.firestore {
       // Okuma: admin kendi şirketinin transferlerini okuyabilir
       allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
-      // Yazma: sadece admin
-      allow create, update, delete: if (isCompanyAdmin() && 
+      // Oluşturma: sadece admin
+      allow create: if (isCompanyAdmin() && 
         belongsToUserCompanyRequest(request) &&
         hasRequiredFields(['companyId', 'vehicleId', 'driverId', 'tripNumber', 'pickupLocation', 'dropoffLocation', 'scheduledPickupTime', 'scheduledDropoffTime', 'status', 'passengerCount', 'createdAt', 'updatedAt']) &&
         isValidTripStatus() &&
@@ -196,6 +196,16 @@ service cloud.firestore {
           (request.resource.data.category != 'cargo' && request.resource.data.passengerCount > 0)
         ) &&
         request.resource.data.passengerCount <= 100) || isOwner();
+      
+      // Güncelleme: sadece admin
+      allow update: if (isCompanyAdmin() && 
+        belongsToUserCompany(resource) &&
+        belongsToUserCompanyRequest(request) &&
+        request.resource.data.companyId == resource.data.companyId &&
+        isValidTripStatus()) || isOwner();
+      
+      // Silme: sadece admin, kendi şirketinin trip'ini silebilir
+      allow delete: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
       
       // Şoförler sadece kendi şirketinin transferlerini okuyabilir
       allow read: if isDriver() && belongsToUserCompany(resource);

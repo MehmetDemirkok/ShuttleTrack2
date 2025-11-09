@@ -20,12 +20,14 @@ class TripViewModel: ObservableObject {
     private var tripsListener: ListenerRegistration?
     private var vehiclesListener: ListenerRegistration?
     private var driversListener: ListenerRegistration?
+    private var isInitialLoad = true
     
     func fetchTrips(for companyId: String) {
         // Önceki listener'ı temizle
         tripsListener?.remove()
         isLoading = true
         errorMessage = ""
+        isInitialLoad = true
         
         // Index gerektirmeyen basit sorgu
         tripsListener = db.collection("trips")
@@ -33,13 +35,15 @@ class TripViewModel: ObservableObject {
             .limit(to: 50) // Maksimum 50 trip
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
-                    self?.isLoading = false
+                    guard let self = self else { return }
+                    
+                    self.isLoading = false
                     
                     if let error = error {
-                        let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
-                        self?.errorMessage = localizedError
-                        self?.showRetryButton = true
-                        self?.lastFailedAction = { [weak self] in
+                        let localizedError = self.errorHandler.getLocalizedErrorMessage(error)
+                        self.errorMessage = localizedError
+                        self.showRetryButton = true
+                        self.lastFailedAction = { [weak self] in
                             self?.fetchTrips(for: companyId)
                         }
                         print("❌ Trip fetch error: \(error.localizedDescription)")
@@ -47,26 +51,76 @@ class TripViewModel: ObservableObject {
                     }
                     
                     // Başarılı olduğunda retry butonunu gizle
-                    self?.showRetryButton = false
-                    self?.lastFailedAction = nil
+                    self.showRetryButton = false
+                    self.lastFailedAction = nil
                     
-                    guard let documents = snapshot?.documents else {
-                        self?.trips = []
+                    guard let snapshot = snapshot else {
+                        self.trips = []
                         return
                     }
                     
-                    print("🚌 Fetched \(documents.count) trips")
-                    
-                    let trips = documents.compactMap { document in
-                        try? document.data(as: Trip.self)
+                    // İlk yüklemede tüm document'ları al
+                    if self.isInitialLoad {
+                        self.isInitialLoad = false
+                        let documents = snapshot.documents
+                        print("🚌 İlk yükleme - Fetched \(documents.count) trips")
+                        
+                        let trips = documents.compactMap { document in
+                            try? document.data(as: Trip.self)
+                        }
+                        
+                        // Client-side filtering - son 30 gün
+                        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+                        let filteredTrips = trips.filter { $0.scheduledPickupTime >= thirtyDaysAgo }
+                        
+                        // Client-side sorting
+                        self.trips = filteredTrips.sorted { $0.scheduledPickupTime < $1.scheduledPickupTime }
+                    } else {
+                        // Sonraki güncellemelerde sadece değişiklikleri işle
+                        for change in snapshot.documentChanges {
+                            switch change.type {
+                            case .added:
+                                if let trip = try? change.document.data(as: Trip.self) {
+                                    // Yeni trip ekle (eğer yoksa)
+                                    if !self.trips.contains(where: { $0.id == trip.id }) {
+                                        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+                                        if trip.scheduledPickupTime >= thirtyDaysAgo {
+                                            self.trips.append(trip)
+                                            print("➕ Yeni trip eklendi: \(trip.tripNumber) - ID: \(trip.id ?? "nil")")
+                                        } else {
+                                            print("⏭️ Trip filtrelendi (30 günden eski): \(trip.tripNumber)")
+                                        }
+                                    } else {
+                                        print("⚠️ Trip zaten listede var, eklenmedi: \(trip.tripNumber) - ID: \(trip.id ?? "nil")")
+                                    }
+                                }
+                            case .modified:
+                                if let trip = try? change.document.data(as: Trip.self),
+                                   let index = self.trips.firstIndex(where: { $0.id == trip.id }) {
+                                    // Mevcut trip'i güncelle
+                                    self.trips[index] = trip
+                                    print("🔄 Trip güncellendi: \(trip.tripNumber)")
+                                }
+                            case .removed:
+                                // Silinen trip'i listeden kaldır
+                                let deletedId = change.document.documentID
+                                let removedCount = self.trips.count
+                                self.trips.removeAll { $0.id == deletedId }
+                                if removedCount > self.trips.count {
+                                    print("🗑️ Trip listener'dan kaldırıldı: \(deletedId)")
+                                } else {
+                                    print("⚠️ Trip listener'da bulunamadı (zaten kaldırılmış olabilir): \(deletedId)")
+                                }
+                            }
+                        }
+                        
+                        // Client-side filtering - son 30 gün
+                        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+                        self.trips = self.trips.filter { $0.scheduledPickupTime >= thirtyDaysAgo }
+                        
+                        // Client-side sorting
+                        self.trips.sort { $0.scheduledPickupTime < $1.scheduledPickupTime }
                     }
-                    
-                    // Client-side filtering - son 30 gün
-                    let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-                    let filteredTrips = trips.filter { $0.scheduledPickupTime >= thirtyDaysAgo }
-                    
-                    // Client-side sorting to avoid index requirement
-                    self?.trips = filteredTrips.sorted { $0.scheduledPickupTime < $1.scheduledPickupTime }
                 }
             }
     }
@@ -287,26 +341,75 @@ class TripViewModel: ObservableObject {
         guard let tripId = trip.id else {
             DispatchQueue.main.async {
                 self.isLoading = false
-                self.errorMessage = "Trip ID bulunamadı"
+                self.errorMessage = "İş ID bulunamadı"
             }
             return
         }
         
+        print("🗑️ Silme işlemi başlatıldı - Trip ID: \(tripId), Trip Number: \(trip.tripNumber)")
+        
+        // Silmeden önce trip'i sakla (hata durumunda geri eklemek için)
+        let tripToRestore = trip
+        
+        // Önce local'den kaldır (optimistic update)
+        if let index = trips.firstIndex(where: { $0.id == tripId }) {
+            trips.remove(at: index)
+            print("🗑️ Trip local listeden kaldırıldı: \(tripId)")
+        }
+        
+        // Firestore'dan sil
         db.collection("trips").document(tripId).delete { [weak self] error in
             DispatchQueue.main.async {
-                self?.isLoading = false
+                guard let self = self else { return }
+                self.isLoading = false
+                
                 if let error = error {
-                    let localizedError = self?.errorHandler.getLocalizedErrorMessage(error) ?? "Bir hata oluştu"
-                    self?.errorMessage = localizedError
-                    self?.showRetryButton = true
-                    self?.lastFailedAction = { [weak self] in
-                        self?.deleteTrip(trip)
+                    let nsError = error as NSError
+                    print("❌ Delete error - Domain: \(nsError.domain), Code: \(nsError.code), Description: \(error.localizedDescription)")
+                    
+                    // Firestore not-found hatası (code 7) - document zaten silinmiş olabilir
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+                        // Document zaten silinmiş, bu başarılı
+                        print("✅ Trip zaten silinmiş (not-found): \(tripId)")
+                        self.errorMessage = ""
+                        self.showRetryButton = false
+                        self.lastFailedAction = nil
+                    } else if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 9 {
+                        // Permission denied - yetki hatası
+                        let localizedError = "Bu işi silmek için yetkiniz bulunmamaktadır. Lütfen yöneticinizle iletişime geçin."
+                        self.errorMessage = localizedError
+                        self.showRetryButton = false
+                        self.lastFailedAction = nil
+                        
+                        // Trip'i geri ekle
+                        if !self.trips.contains(where: { $0.id == tripId }) {
+                            self.trips.append(tripToRestore)
+                            self.trips.sort { $0.scheduledPickupTime < $1.scheduledPickupTime }
+                            print("⚠️ Yetki hatası, trip geri eklendi: \(tripId)")
+                        }
+                        print("❌ Permission denied - Silme yetkisi yok: \(tripId)")
+                    } else {
+                        // Diğer hatalar - trip'i geri ekle
+                        if !self.trips.contains(where: { $0.id == tripId }) {
+                            self.trips.append(tripToRestore)
+                            self.trips.sort { $0.scheduledPickupTime < $1.scheduledPickupTime }
+                            print("⚠️ Silme başarısız, trip geri eklendi: \(tripId)")
+                        }
+                        
+                        let localizedError = self.errorHandler.getLocalizedErrorMessage(error)
+                        self.errorMessage = localizedError
+                        self.showRetryButton = true
+                        self.lastFailedAction = { [weak self] in
+                            self?.deleteTrip(tripToRestore)
+                        }
+                        print("❌ Error deleting trip: \(error.localizedDescription)")
                     }
-                    print("Error deleting trip: \(error)")
                 } else {
-                    self?.showRetryButton = false
-                    self?.lastFailedAction = nil
-                    print("Trip deleted successfully: \(tripId)")
+                    // Silme işlemi başarılı
+                    self.errorMessage = ""
+                    self.showRetryButton = false
+                    self.lastFailedAction = nil
+                    print("✅ Trip başarıyla Firestore'dan silindi: \(tripId)")
                 }
             }
         }
