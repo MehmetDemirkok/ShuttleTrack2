@@ -1,21 +1,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseFirestoreSwift
-import FirebaseFunctions
 import FirebaseAuth
-
-// Cloud Function hataları için özel error type
-struct CloudFunctionError: LocalizedError {
-    let message: String
-    
-    var errorDescription: String? {
-        return message
-    }
-    
-    var localizedDescription: String {
-        return message
-    }
-}
 
 struct AddEditDriverView: View {
     @Environment(\.presentationMode) var presentationMode
@@ -224,42 +210,9 @@ struct AddEditDriverView: View {
             return
         }
 
-        // Cloud Function ile sürücü için Auth kullanıcısı oluştur
-        // Not: Fallback mekanizması kaldırıldı çünkü admin oturumunu korumak için şifre gerekiyor
-        // Cloud Function başarısız olursa, sürücü kaydedilir ama authUserId olmadan (anonymous giriş yapacak)
-        var createdAuthUid: String? = nil
-        do {
-            createdAuthUid = try await createDriverAuthUser(email: email, fullName: "\(firstName) \(lastName)", companyId: companyId)
-            print("✅ Cloud Function ile sürücü Auth kullanıcısı oluşturuldu: \(createdAuthUid ?? "nil")")
-        } catch {
-            let nsError = error as NSError
-            var friendly = "Bilinmeyen hata"
-            
-            // CloudFunctionError mesajını kontrol et
-            if let cfError = error as? CloudFunctionError {
-                friendly = cfError.message
-            } else if nsError.domain == FunctionsErrorDomain {
-                friendly = "Şoför için giriş hesabı oluşturulamadı. Lütfen Cloud Functions dağıtımını kontrol edin."
-            } else if nsError.domain == NSURLErrorDomain {
-                friendly = "Ağ/bağlantı veya Functions erişim hatası. İnternet ve proje ayarlarını kontrol edin."
-            } else {
-                friendly = error.localizedDescription
-            }
-            
-            print("❌ createDriverUser hata: \(friendly) [domain=\(nsError.domain) code=\(nsError.code)]")
-            print("❌ Hata detayı: \(error)")
-            print("⚠️ Cloud Function başarısız, sürücü kaydedilecek ancak authUserId olmadan")
-            
-            // Cloud Function başarısız, kullanıcıya uyarıyı göster ama kaydı sürdür
-            // Admin oturumu korunuyor çünkü signOut yapmıyoruz
-            if let cfError = error as? CloudFunctionError, cfError.message.contains("hiçbir bölgede bulunamadı") {
-                // Cloud Function hiç deploy edilmemiş
-                self.errorMessage = "⚠️ Sürücü kaydedildi ancak giriş hesabı oluşturulamadı. Cloud Function deploy edilmemiş. Sürücü ilk girişinde anonymous olarak giriş yapacak."
-            } else {
-                // Diğer hatalar
-                self.errorMessage = "⚠️ Sürücü kaydedildi ancak giriş hesabı oluşturulamadı. Sürücü ilk girişinde anonymous olarak giriş yapacak."
-            }
-        }
+        // Firebase Auth kullanıcısı oluşturma işlemi login anına bırakıldı
+        // Bu sayede admin oturumu korunur ve Cloud Function gerekmez
+        // Sürücü login olurken, eğer isActive ise ve authUserId yoksa Firebase Auth ile kullanıcı oluşturulur
         
         // Yeni driver için ID nil bırakılır (Firestore otomatik oluşturur)
         // Düzenleme için mevcut ID kullanılır
@@ -273,28 +226,24 @@ struct AddEditDriverView: View {
             isActive: isActive,
             companyId: companyId
         )
-        // Auth UID'yi driver kaydına iliştir
+        
+        // Düzenleme durumunda: Eğer email değiştiyse ve authUserId varsa, 
+        // mevcut authUserId'yi koruyoruz (email değişikliği Firebase Auth'ta manuel yapılmalı)
         var driverWithAuth = newDriver
-        driverWithAuth.authUserId = createdAuthUid
+        if isEditing, let existingAuthUserId = driver?.authUserId {
+            driverWithAuth.authUserId = existingAuthUserId
+            // Düzenleme durumunda: authUserId varsa UserProfile'ı güncelle
+            await updateDriverUserProfile(
+                userId: existingAuthUserId,
+                driver: driverWithAuth
+            )
+        }
 
         if isEditing {
             viewModel.updateDriver(driverWithAuth)
-            // Düzenleme durumunda: authUserId varsa UserProfile'ı güncelle
-            if let authUid = driverWithAuth.authUserId ?? createdAuthUid {
-                await updateDriverUserProfile(
-                    userId: authUid,
-                    driver: driverWithAuth
-                )
-            }
         } else {
             viewModel.addDriver(driverWithAuth)
-            // Yeni sürücü: authUserId varsa UserProfile oluştur
-            if let authUid = createdAuthUid {
-                await createDriverUserProfile(
-                    userId: authUid,
-                    driver: driverWithAuth
-                )
-            }
+            print("✅ Sürücü kaydedildi. Sürücü ilk girişinde Firebase Auth hesabı otomatik oluşturulacak.")
         }
 
         // Kaydetme sonucu bekle (kısa gecikme)
@@ -308,92 +257,6 @@ struct AddEditDriverView: View {
         }
     }
 
-    // Cloud Function: createDriverUser(email, fullName, companyId) -> { uid }
-    // Birden fazla bölgeyi deneyerek Cloud Function'ı bulmaya çalışır
-    private func createDriverAuthUser(email: String, fullName: String, companyId: String) async throws -> String {
-        // Yaygın Firebase Functions bölgeleri (sırayla denenir)
-        let regions = ["us-central1", "europe-west1", "asia-northeast1", "us-east1"]
-        let data: [String: Any] = [
-            "email": email,
-            "fullName": fullName,
-            "companyId": companyId,
-            "defaultPassword": "000000"
-        ]
-        
-        // Her bölgeyi sırayla dene
-        for region in regions {
-            do {
-                let functions = Functions.functions(region: region)
-                let result = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-                    functions.httpsCallable("createDriverUser").call(data) { result, error in
-                        if let error = error {
-                            let nsError = error as NSError
-                            print("❌ Cloud Function hata [\(region)]: domain=\(nsError.domain), code=\(nsError.code), description=\(error.localizedDescription)")
-                            
-                            if nsError.domain == FunctionsErrorDomain {
-                                if let code = FunctionsErrorCode(rawValue: nsError.code), code == .notFound {
-                                    // Bu bölgede bulunamadı, bir sonraki bölgeyi dene
-                                    continuation.resume(throwing: CloudFunctionError(message: "NOT_FOUND"))
-                                } else {
-                                    // Başka bir Functions hatası
-                                    let errorMessage = "Cloud Function hatası: \(error.localizedDescription)"
-                                    continuation.resume(throwing: CloudFunctionError(message: errorMessage))
-                                }
-                            } else {
-                                continuation.resume(throwing: error)
-                            }
-                            return
-                        }
-                        
-                        // Yanıt kontrolü
-                        guard let result = result else {
-                            print("❌ Cloud Function yanıtı nil [\(region)]")
-                            continuation.resume(throwing: CloudFunctionError(message: "Cloud Function yanıt vermedi"))
-                            return
-                        }
-                        
-                        // Yanıt formatını kontrol et
-                        let responseData = result.data
-                        print("📊 Cloud Function yanıtı [\(region)]: \(String(describing: responseData))")
-                        
-                        // Dictionary olarak parse et
-                        guard let dict = responseData as? [String: Any] else {
-                            print("❌ Cloud Function yanıtı dictionary değil [\(region)]: \(type(of: responseData))")
-                            continuation.resume(throwing: CloudFunctionError(message: "Cloud Function geçersiz yanıt formatı döndürdü. Beklenen: dictionary, Alınan: \(type(of: responseData))"))
-                            return
-                        }
-                        
-                        // UID'yi al
-                        guard let uid = dict["uid"] as? String, !uid.isEmpty else {
-                            print("❌ Cloud Function yanıtında 'uid' bulunamadı [\(region)]: \(dict)")
-                            continuation.resume(throwing: CloudFunctionError(message: "Cloud Function yanıtında 'uid' bulunamadı. Yanıt: \(dict)"))
-                            return
-                        }
-                        
-                        print("✅ Cloud Function başarılı [\(region)], UID: \(uid)")
-                        continuation.resume(returning: uid)
-                    }
-                }
-                
-                // Başarılı oldu, sonucu döndür
-                return result
-                
-            } catch {
-                // NOT_FOUND hatası ise bir sonraki bölgeyi dene
-                if let cfError = error as? CloudFunctionError, cfError.message == "NOT_FOUND" {
-                    print("⚠️ Cloud Function '\(region)' bölgesinde bulunamadı, bir sonraki bölge deneniyor...")
-                    continue
-                } else {
-                    // Başka bir hata, direkt fırlat
-                    throw error
-                }
-            }
-        }
-        
-        // Tüm bölgeler denenmiş ve bulunamadı
-        throw CloudFunctionError(message: "Cloud Function 'createDriverUser' hiçbir bölgede bulunamadı. Lütfen Firebase Console'dan Cloud Functions'ı deploy edin. Denenen bölgeler: \(regions.joined(separator: ", "))")
-    }
-    
     // Sürücü için UserProfile oluştur
     private func createDriverUserProfile(userId: String, driver: Driver) async {
         let db = Firestore.firestore()

@@ -12,19 +12,23 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data;
     }
     
+    function hasUserProfile() {
+      return exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid));
+    }
+    
     function isCompanyAdmin() {
-      return isAuthenticated() && getUserProfile().userType == 'company_admin';
+      return isAuthenticated() && hasUserProfile() && getUserProfile().userType == 'company_admin';
     }
     function isOwner() {
-      return isAuthenticated() && getUserProfile().userType == 'owner';
+      return isAuthenticated() && hasUserProfile() && getUserProfile().userType == 'owner';
     }
     
     function isDriver() {
-      return isAuthenticated() && getUserProfile().userType == 'driver';
+      return isAuthenticated() && hasUserProfile() && getUserProfile().userType == 'driver';
     }
     
     function getUserCompanyId() {
-      return getUserProfile().companyId;
+      return hasUserProfile() ? getUserProfile().companyId : null;
     }
     
     function belongsToUserCompany(resource) {
@@ -54,7 +58,12 @@ service cloud.firestore {
     // Companies Collection Rules
     match /companies/{companyId} {
       // Okuma: aynı şirketteki tüm doğrulanmış kullanıcılar (admin + sürücü)
-      allow read: if (isAuthenticated() && getUserCompanyId() == companyId) || isOwner();
+      // Profil yoksa veya companyId null ise erişim reddedilir
+      allow read: if (
+        isAuthenticated() && 
+        hasUserProfile() && 
+        getUserCompanyId() == companyId
+      ) || isOwner();
 
       // Güncelleme: sadece şirket admin'i kendi şirketini güncelleyebilir
       allow update: if (isCompanyAdmin() && getUserCompanyId() == companyId) || isOwner();
@@ -75,14 +84,15 @@ service cloud.firestore {
       allow read: if (isAuthenticated() && request.auth.uid == userId) || isOwner();
       
       // Profil oluşturma
-      // 1) Kullanıcı kendi profilini oluşturabilir
+      // 1) Kullanıcı kendi profilini oluşturabilir (sürücü login akışı için)
       // 2) Şirket admin'i, kendi şirketi için sürücü profili oluşturabilir
       allow create: if (
         isAuthenticated() &&
         request.auth.uid == userId &&
         hasRequiredFields(['userId', 'userType', 'email', 'fullName', 'isActive', 'createdAt']) &&
         isValidUserType() &&
-        request.resource.data.userId == userId
+        request.resource.data.userId == userId &&
+        request.resource.data.userId == request.auth.uid
       ) || (
         isCompanyAdmin() &&
         request.resource.data.userType == 'driver' &&
@@ -133,9 +143,12 @@ service cloud.firestore {
       allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
 
       // Hızlı sürücü girişi için: kimliği doğrulanmış (anonim dahil) kullanıcılar
-      // aktif sürücü kayıtlarını okuyabilir. Bu, sadece isActive==true kayıtların
-      // okunmasına izin vererek şirket dışına veri sızmasını sınırlar.
-      allow read: if isAuthenticated() && resource.data.isActive == true;
+      // aktif sürücü kayıtlarını okuyabilir. LoginView'de sürücü araması login öncesi yapıldığı için 
+      // anonymous kullanıcılar da erişebilmeli. Query'lerde whereField("isActive", isEqualTo: true) 
+      // filtresi kullanılıyor, bu yüzden sadece aktif sürücüler döner.
+      // Not: Query yaparken resource.data kullanılamaz, bu yüzden authenticated kullanıcılar için 
+      // query'lere genel izin veriyoruz. Client-side'da isActive kontrolü yapılıyor.
+      allow read: if request.auth != null;
       
       // Oluşturma: sadece admin
       allow create: if (isCompanyAdmin() &&

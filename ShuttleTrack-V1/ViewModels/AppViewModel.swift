@@ -48,14 +48,33 @@ class AppViewModel: ObservableObject {
     func reloadAfterDriverProfileCreated(_ profile: UserProfile) {
         Task { @MainActor in
             print("🔄 reloadAfterDriverProfileCreated çağrıldı: \(profile.userId)")
+            print("🔄 Profil detayları - Email: \(profile.email), CompanyId: \(profile.companyId ?? "nil"), isActive: \(profile.isActive)")
+            
             // Timer'ı iptal et (profil başarıyla yüklendi)
             profileLoadTimer?.invalidate()
             profileLoadTimer = nil
             profileLoadStartTime = nil
+            
+            // Profili set et
             self.currentUserProfile = profile
-            let companyId = profile.companyId ?? profile.userId
+            print("✅ currentUserProfile set edildi: \(profile.userId)")
+            
+            // Şirket ID'sini belirle
+            guard let companyId = profile.companyId else {
+                print("⚠️ Profilde companyId yok, userId kullanılıyor: \(profile.userId)")
+                // Kısa bir gecikme sonrası şirket yükle (Firestore rules'ın profili görmesi için)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.loadCompanyData(companyId: profile.userId)
+                }
+                return
+            }
+            
             print("🏢 Şirket yükleniyor: \(companyId)")
-            self.loadCompanyData(companyId: companyId)
+            // Firestore rules'ın profili görmesi için kısa bir gecikme
+            // Profil yeni oluşturuldu, Firestore rules henüz görmeyebilir
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.loadCompanyData(companyId: companyId)
+            }
         }
     }
     
@@ -70,7 +89,10 @@ class AppViewModel: ObservableObject {
             // Şirket bilgisi yoksa yükle
             if currentCompany == nil {
                 let companyId = existingProfile.companyId ?? user.uid
+                print("🏢 Şirket bilgisi yok, yükleniyor: \(companyId)")
                 loadCompanyData(companyId: companyId)
+            } else {
+                print("✅ Profil ve şirket bilgisi zaten yüklü")
             }
             return
         }
@@ -115,7 +137,12 @@ class AppViewModel: ObservableObject {
                         } else {
                             print("⚠️ User profile deaktif: \(user.uid) — giriş engellenecek")
                             // Deaktif kullanıcıları tamamen çıkışa yönlendir
-                            self?.authMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                            // Sürücüler için: Şirket yetkilisi maili ekledikten sonra isActive=true yapılmalı
+                            if profile.userType == .driver {
+                                self?.authMessage = "Hesabınız henüz onaylanmamış. Lütfen şirket yetkilinizle iletişime geçin."
+                            } else {
+                                self?.authMessage = "Hesabınız onay beklemektedir. Lütfen uygulama yetkilileri tarafından onaylanana kadar bekleyiniz."
+                            }
                             self?.currentUserProfile = nil
                             self?.currentCompany = nil
                             self?.signOut()
@@ -136,28 +163,36 @@ class AppViewModel: ObservableObject {
                         self?.startProfileLoadTimeout(for: user)
                         return
                     }
-                    // Diğer kullanıcı tipleri için ilk girişte otomatik profil oluştur
-                    self?.createDefaultProfileIfMissing(for: user)
+                    // Email/password ile giriş yapan kullanıcılar için (sürücü dahil)
+                    // LoginView profil oluşturacak, bu yüzden timeout başlat ve bekle
+                    // Sürücü login akışında profil LoginView tarafından oluşturulur
+                    print("ℹ️ Profil bulunamadı, LoginView tarafından oluşturulması bekleniyor...")
+                    self?.startProfileLoadTimeout(for: user, extendedTimeout: true)
                 }
             }
         }
     }
     
     // Profil yükleme timeout'u: Belirli bir süre içinde profil yüklenmezse çıkış yap
-    private func startProfileLoadTimeout(for user: User) {
+    private func startProfileLoadTimeout(for user: User, extendedTimeout: Bool = false) {
         // Önceki timer'ı iptal et
         profileLoadTimer?.invalidate()
         
-        // 10 saniye sonra kontrol et
+        // Sürücü login akışında profil oluşturma daha uzun sürebilir, bu yüzden timeout süresini artır
+        let timeoutInterval: TimeInterval = extendedTimeout ? 30.0 : 10.0
+        
         let userId = user.uid
-        let timer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: timeoutInterval, repeats: false) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 // Hala profil yüklenmemişse ve aynı kullanıcı ise çıkış yap
                 if self.currentUserProfile == nil, 
                    let currentUser = Auth.auth().currentUser,
                    currentUser.uid == userId {
-                    print("⏱️ Profil yükleme timeout: 10 saniye içinde profil yüklenmedi, çıkış yapılıyor")
+                    let timeoutMessage = extendedTimeout ? 
+                        "⏱️ Profil yükleme timeout: 30 saniye içinde profil yüklenmedi, çıkış yapılıyor" :
+                        "⏱️ Profil yükleme timeout: 10 saniye içinde profil yüklenmedi, çıkış yapılıyor"
+                    print(timeoutMessage)
                     self.authMessage = "Profil yüklenemedi. Lütfen tekrar giriş yapmayı deneyin."
                     self.signOut()
                 }
@@ -184,14 +219,29 @@ class AppViewModel: ObservableObject {
             return
         }
         
-        print("🌐 Loading company data from Firebase...")
+        print("🌐 Loading company data from Firebase... CompanyId: \(companyId)")
         lastCompanyLoadTime = Date()
         let db = Firestore.firestore()
         
         db.collection("companies").document(companyId).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    print("❌ Error loading company data: \(error)")
+                    let nsError = error as NSError
+                    print("❌ Error loading company data: \(error.localizedDescription)")
+                    print("❌ Error code: \(nsError.code), domain: \(nsError.domain)")
+                    
+                    // Permission denied hatası ise, profil henüz yüklenmemiş olabilir
+                    // Birkaç saniye sonra tekrar dene
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+                        print("⚠️ Permission denied, 2 saniye sonra tekrar deneniyor...")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            // Profil yüklendiyse tekrar dene
+                            if self?.currentUserProfile != nil {
+                                print("🔄 Profil yüklendi, şirket verisi tekrar yükleniyor...")
+                                self?.loadCompanyData(companyId: companyId)
+                            }
+                        }
+                    }
                     return
                 }
                 
@@ -200,7 +250,7 @@ class AppViewModel: ObservableObject {
                         let company = try document.data(as: Company.self)
                         self?.currentCompany = company
                         self?.companyCache[companyId] = company
-                        print("✅ Company data loaded successfully")
+                        print("✅ Company data loaded successfully: \(company.name)")
                     } catch {
                         print("❌ Error decoding company: \(error)")
                     }
