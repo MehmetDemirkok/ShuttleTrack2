@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import FirebaseFirestore
 import FirebaseFirestoreSwift
+import FirebaseAuth
 
 @MainActor
 class DriverViewModel: ObservableObject {
@@ -129,6 +130,10 @@ class DriverViewModel: ObservableObject {
         isLoading = true
         errorMessage = ""
         
+        // Firebase Auth kullanıcı oluşturma işlemini login anına ertele
+        // Bu sayede admin oturumu korunur
+        // Sürücü ilk giriş yaptığında (LoginView'daki createOrSignInDriver) Firebase Auth hesabı oluşturulacak
+        
         // ID varsa setData kullan, yoksa addDocument kullan (Firestore otomatik ID oluşturur)
         if let driverId = driver.id {
             // Mevcut ID ile kaydet
@@ -138,6 +143,8 @@ class DriverViewModel: ObservableObject {
                         self?.isLoading = false
                         if let error = error {
                             self?.errorMessage = error.localizedDescription
+                        } else {
+                            print("✅ Sürücü kaydedildi. İlk girişte Firebase Auth hesabı oluşturulacak.")
                         }
                     }
                 }
@@ -155,6 +162,8 @@ class DriverViewModel: ObservableObject {
                         self?.isLoading = false
                         if let error = error {
                             self?.errorMessage = error.localizedDescription
+                        } else {
+                            print("✅ Sürücü kaydedildi. İlk girişte Firebase Auth hesabı oluşturulacak.")
                         }
                     }
                 }

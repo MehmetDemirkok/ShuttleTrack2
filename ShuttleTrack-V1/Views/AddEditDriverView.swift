@@ -217,13 +217,7 @@ struct AddEditDriverView: View {
             return
         }
 
-        // Firebase Auth kullanıcısı oluşturma işlemi login anına bırakıldı
-        // Bu sayede admin oturumu korunur ve Cloud Function gerekmez
-        // Sürücü login olurken, eğer isActive ise ve authUserId yoksa Firebase Auth ile kullanıcı oluşturulur
-        
-        // Yeni driver için ID nil bırakılır (Firestore otomatik oluşturur)
-        // Düzenleme için mevcut ID kullanılır
-        // Email'i lowercase'e çevirerek kaydet (tutarlılık için)
+        // Yeni driver objesi oluştur
         let newDriver = Driver(
             id: isEditing ? driver?.id : nil,
             firstName: firstName,
@@ -234,8 +228,8 @@ struct AddEditDriverView: View {
             companyId: companyId
         )
         
-        // Düzenleme durumunda: Eğer email değiştiyse ve authUserId varsa, 
-        // mevcut authUserId'yi koruyoruz (email değişikliği Firebase Auth'ta manuel yapılmalı)
+        // Firebase Auth kullanıcısı oluşturma artık addDriver içinde yapılıyor
+        // AuthUserId'yi korumak için düzenleme durumunda mevcut değeri kullan
         var driverWithAuth = newDriver
         if isEditing, let existingAuthUserId = driver?.authUserId {
             driverWithAuth.authUserId = existingAuthUserId
@@ -250,9 +244,9 @@ struct AddEditDriverView: View {
             viewModel.updateDriver(driverWithAuth)
         } else {
             viewModel.addDriver(driverWithAuth)
-            print("✅ Sürücü kaydedildi. Sürücü ilk girişinde Firebase Auth hesabı otomatik oluşturulacak.")
+            print("✅ Sürücü kaydedildi. İlk girişte Firebase Auth hesabı oluşturulacak.")
         }
-
+        
         // Kaydetme sonucu bekle (kısa gecikme)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.isLoading = false

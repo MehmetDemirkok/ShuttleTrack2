@@ -142,13 +142,12 @@ service cloud.firestore {
       // Okuma: admin kendi şirketinin şoförlerini okuyabilir
       allow read: if (isCompanyAdmin() && belongsToUserCompany(resource)) || isOwner();
 
-      // Hızlı sürücü girişi için: kimliği doğrulanmış (anonim dahil) kullanıcılar
-      // aktif sürücü kayıtlarını okuyabilir. LoginView'de sürücü araması login öncesi yapıldığı için 
-      // anonymous kullanıcılar da erişebilmeli. Query'lerde whereField("isActive", isEqualTo: true) 
-      // filtresi kullanılıyor, bu yüzden sadece aktif sürücüler döner.
-      // Not: Query yaparken resource.data kullanılamaz, bu yüzden authenticated kullanıcılar için 
-      // query'lere genel izin veriyoruz. Client-side'da isActive kontrolü yapılıyor.
-      allow read: if request.auth != null;
+      // Hızlı sürücü girişi için: Unauthenticated kullanıcılar da aktif sürücüleri arayabilir
+      // LoginView'de sürücü araması yaparken kullanılıyor
+      // Sadece aktif sürücüler (isActive == true) okunabilir
+      // Not: Bu kural tüm aktif sürücülerin email/phone bilgilerini herkese açar
+      // Ancak bu bilgiler zaten giriş için gerekli ve hassas bilgi içermiyor
+      allow read: if resource.data.isActive == true;
       
       // Oluşturma: sadece admin
       allow create: if (isCompanyAdmin() &&

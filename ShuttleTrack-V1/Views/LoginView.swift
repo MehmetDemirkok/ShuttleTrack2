@@ -199,24 +199,9 @@ struct LoginView: View {
         let raw = driverIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         let (maybeEmail, maybePhone) = classify(raw)
         
-        // Firestore rules için anonymous kullanıcı oluştur (eğer henüz authenticated değilse)
-        // Bu sayede sürücü araması yapılabilir
-        if Auth.auth().currentUser == nil {
-            Auth.auth().signInAnonymously { authResult, authError in
-                DispatchQueue.main.async {
-                    if let authError = authError {
-                        self.isLoading = false
-                        self.errorMessage = ErrorHandler.shared.getLocalizedErrorMessage(authError)
-                        return
-                    }
-                    // Anonymous kullanıcı oluşturuldu, sürücü araması yap
-                    self.searchDriverInFirestore(maybeEmail: maybeEmail, maybePhone: maybePhone)
-                }
-            }
-        } else {
-            // Zaten authenticated, direkt arama yap
-            self.searchDriverInFirestore(maybeEmail: maybeEmail, maybePhone: maybePhone)
-        }
+        // Artık anonim kullanıcı oluşturmuyoruz
+        // Direkt olarak sürücüyi ara ve eğer varsa email/password ile giriş yap
+        searchDriverInFirestore(maybeEmail: maybeEmail, maybePhone: maybePhone)
     }
     
     private func searchDriverInFirestore(maybeEmail: String?, maybePhone: String?) {
