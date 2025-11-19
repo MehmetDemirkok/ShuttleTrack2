@@ -202,7 +202,7 @@ struct DashboardView: View {
         .fullScreenCover(isPresented: $showAdminPanel) {
             AdminPanelView()
         }
-        .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
+        .onChange(of: appViewModel.currentCompany?.id) { newValue in
             // Şirket bilgisi sonradan geldiğinde istatistikleri ve listeleri yükle
             if let companyId = newValue {
                 print("🔁 Company ID değişti: \(companyId) — dashboard verileri yeniden yükleniyor")

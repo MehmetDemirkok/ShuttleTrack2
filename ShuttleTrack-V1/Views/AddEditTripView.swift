@@ -363,7 +363,7 @@ struct AddEditTripView: View {
                         Image(systemName: "checkmark")
                         Text("Kaydet")
                     }
-                    .fontWeight(.semibold)
+                    .font(.headline)
                     .foregroundColor(isFormValid ? ShuttleTrackTheme.Colors.primaryBlue : ShuttleTrackTheme.Colors.tertiaryText)
                 }
                 .disabled(!isFormValid || isLoading)
@@ -399,7 +399,7 @@ struct AddEditTripView: View {
                 // Yolcu sayısı ile passengers senkronize başlat
                 syncPassengersWithCount()
             }
-            .onChange(of: passengerCount) {
+            .onChange(of: passengerCount) { _ in
                 syncPassengersWithCount()
             }
         }

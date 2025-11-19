@@ -268,12 +268,12 @@ struct DriverDashboardView: View {
             loadData()
             loadNotifications()
         }
-        .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
+        .onChange(of: appViewModel.currentCompany?.id) { newValue in
             if newValue != nil {
                 loadData()
             }
         }
-        .onChange(of: driverViewModel.currentDriver?.id) { oldValue, newValue in
+        .onChange(of: driverViewModel.currentDriver?.id) { newValue in
             // Sürücü bilgisi yüklendiğinde işleri yeniden yükle
             if newValue != nil {
                 print("✅ CurrentDriver yüklendi: \(newValue ?? "nil")")
@@ -281,7 +281,7 @@ struct DriverDashboardView: View {
                 tripViewModel.fetchTrips(for: companyId)
             }
         }
-        .onChange(of: driverViewModel.drivers.count) { oldValue, newValue in
+        .onChange(of: driverViewModel.drivers.count) { newValue in
             // Drivers listesi yüklendiğinde işleri yeniden yükle
             if newValue > 0 {
                 print("✅ Drivers listesi yüklendi: \(newValue) sürücü")
@@ -344,7 +344,7 @@ struct DriverDashboardView: View {
                 Text("\(trip.tripNumber) numaralı işi iptal etmek istediğinizden emin misiniz?")
             }
         }
-        .onChange(of: tripViewModel.errorMessage) { oldValue, newValue in
+        .onChange(of: tripViewModel.errorMessage) { newValue in
             if !newValue.isEmpty {
                 print("❌ TripViewModel error: \(newValue)")
             }

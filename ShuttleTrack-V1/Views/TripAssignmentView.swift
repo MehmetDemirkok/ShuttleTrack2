@@ -166,7 +166,7 @@ struct TripAssignmentView: View {
             .onAppear {
                 loadTrips()
             }
-            .onChange(of: appViewModel.currentCompany?.id) { oldValue, newValue in
+            .onChange(of: appViewModel.currentCompany?.id) { newValue in
                 if let companyId = newValue {
                     viewModel.fetchTrips(for: companyId)
                     viewModel.fetchVehicles(for: companyId)
@@ -204,7 +204,7 @@ struct TripAssignmentView: View {
             } message: {
                 Text("Bu işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
             }
-            .onChange(of: viewModel.errorMessage) { oldValue, newValue in
+            .onChange(of: viewModel.errorMessage) { newValue in
                 // Silme işlemi başarılı olduğunda hata mesajını temizle
                 if !newValue.isEmpty && newValue.contains("Aranan kayıt bulunamadı") {
                     // Silme işlemi başarılı olmuş olabilir (document zaten silinmiş)

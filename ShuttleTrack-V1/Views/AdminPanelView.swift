@@ -49,7 +49,6 @@ struct AdminPanelView: View {
             .onAppear { viewModel.loadAll() }
             .ignoresSafeArea(.keyboard, edges: .bottom)
         }
-        .scrollDismissesKeyboard(.interactively)
     }
 
     private var tabTitle: String {

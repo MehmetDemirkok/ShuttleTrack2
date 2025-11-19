@@ -379,16 +379,9 @@ struct ContactFormView: View {
                     TextField("Konu", text: $subject)
                         .textFieldStyle(ShuttleTrackTextFieldStyle())
                     
-                    ZStack(alignment: .topLeading) {
-                        if message.isEmpty {
-                            Text("Mesajınızı buraya yazın...")
-                                .foregroundColor(Color(.placeholderText))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 8)
-                        }
-                        TextEditor(text: $message)
-                            .frame(minHeight: 100)
-                    }
+                    TextField("Mesajınızı buraya yazın...", text: $message)
+                        .textFieldStyle(ShuttleTrackTextFieldStyle())
+                        .lineLimit(10)
                 }
             }
             .navigationTitle("İletişim Formu")
@@ -710,16 +703,9 @@ struct FeedbackView: View {
                 }
                 
                 Section(header: Text("Geri Bildiriminiz")) {
-                    ZStack(alignment: .topLeading) {
-                        if feedbackText.isEmpty {
-                            Text("Geri bildiriminizi buraya yazın...")
-                                .foregroundColor(Color(.placeholderText))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 8)
-                        }
-                        TextEditor(text: $feedbackText)
-                            .frame(minHeight: 100)
-                    }
+                    TextField("Geri bildiriminizi buraya yazın...", text: $feedbackText)
+                        .textFieldStyle(ShuttleTrackTextFieldStyle())
+                        .lineLimit(10)
                 }
             }
             .navigationTitle("Geri Bildirim")

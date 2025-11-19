@@ -270,7 +270,7 @@ struct AddEditVehicleView: View {
                         Image(systemName: "checkmark")
                         Text("Kaydet")
                     }
-                    .fontWeight(.semibold)
+                    .font(.headline)
                     .foregroundColor(isFormValid ? ShuttleTrackTheme.Colors.primaryBlue : ShuttleTrackTheme.Colors.tertiaryText)
                 }
                 .disabled(!isFormValid || isLoading)
