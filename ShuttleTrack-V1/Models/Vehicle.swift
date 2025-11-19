@@ -66,7 +66,7 @@ struct Vehicle: Identifiable, Codable {
     }
     
     var displayName: String {
-        return "\(brand) \(model) - \(plateNumber)"
+        return "\(plateNumber) - \(brand) \(model)"
     }
     
     var statusText: String {

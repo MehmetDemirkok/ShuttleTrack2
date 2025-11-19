@@ -8,7 +8,7 @@ class ExportService: ObservableObject {
     @Published var exportProgress: Double = 0.0
     @Published var exportMessage = ""
     
-    func exportToExcel(trips: [Trip]) -> URL? {
+    func exportToExcel(trips: [Trip], vehicles: [Vehicle], drivers: [Driver]) -> URL? {
         isExporting = true
         exportProgress = 0.0
         exportMessage = "Excel dosyası oluşturuluyor..."
@@ -38,7 +38,31 @@ class ExportService: ObservableObject {
             
             let fare = trip.fare != nil ? String(format: "%.2f TL", trip.fare!) : "-"
             
-            csvContent += "\"\(trip.tripNumber)\",\"\(trip.pickupLocation.name)\",\"\(trip.dropoffLocation.name)\",\"\(passengerName)\",\"\(trip.passengerCount)\",\"\(pickupDate)\",\"\(pickupTime)\",\"\(trip.statusText)\",\"\(trip.vehicleId.isEmpty ? "Atanmamış" : trip.vehicleId)\",\"\(trip.driverId.isEmpty ? "Atanmamış" : trip.driverId)\",\"\(fare)\"\n"
+            // Araç bilgisini bul
+            let vehicleInfo: String
+            if trip.vehicleId.isEmpty {
+                vehicleInfo = "Atanmamış"
+            } else {
+                if let vehicle = vehicles.first(where: { $0.id == trip.vehicleId }) {
+                    vehicleInfo = vehicle.displayName  // Örn: "34 ABC 123 - Toyota"
+                } else {
+                    vehicleInfo = "Bulunamadı"
+                }
+            }
+            
+            // Şoför bilgisini bul
+            let driverInfo: String
+            if trip.driverId.isEmpty {
+                driverInfo = "Atanmamış"
+            } else {
+                if let driver = drivers.first(where: { $0.id == trip.driverId }) {
+                    driverInfo = driver.fullName  // Örn: "Ahmet Yılmaz"
+                } else {
+                    driverInfo = "Bulunamadı"
+                }
+            }
+            
+            csvContent += "\"\(trip.tripNumber)\",\"\(trip.pickupLocation.name)\",\"\(trip.dropoffLocation.name)\",\"\(passengerName)\",\"\(trip.passengerCount)\",\"\(pickupDate)\",\"\(pickupTime)\",\"\(trip.statusText)\",\"\(vehicleInfo)\",\"\(driverInfo)\",\"\(fare)\"\n"
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -69,7 +93,7 @@ class ExportService: ObservableObject {
         }
     }
     
-    func exportToPDF(trips: [Trip]) -> URL? {
+    func exportToPDF(trips: [Trip], vehicles: [Vehicle], drivers: [Driver]) -> URL? {
         isExporting = true
         exportProgress = 0.0
         exportMessage = "PDF dosyası oluşturuluyor..."
@@ -202,6 +226,38 @@ class ExportService: ObservableObject {
                 let detailRect = CGRect(x: leftMargin, y: yPosition, width: contentWidth, height: lineHeight)
                 detailText.draw(in: detailRect, withAttributes: routeAttributes)
                 
+                yPosition += lineHeight
+                
+                // Araç bilgisi
+                let vehicleInfo: String
+                if trip.vehicleId.isEmpty {
+                    vehicleInfo = "Atanmamış"
+                } else {
+                    if let vehicle = vehicles.first(where: { $0.id == trip.vehicleId }) {
+                        vehicleInfo = vehicle.displayName
+                    } else {
+                        vehicleInfo = "Bulunamadı"
+                    }
+                }
+                let vehicleText = "   Araç: \(vehicleInfo)"
+                let vehicleRect = CGRect(x: leftMargin, y: yPosition, width: contentWidth, height: lineHeight)
+                vehicleText.draw(in: vehicleRect, withAttributes: routeAttributes)
+                yPosition += lineHeight
+                
+                // Şoför bilgisi
+                let driverInfo: String
+                if trip.driverId.isEmpty {
+                    driverInfo = "Atanmamış"
+                } else {
+                    if let driver = drivers.first(where: { $0.id == trip.driverId }) {
+                        driverInfo = driver.fullName
+                    } else {
+                        driverInfo = "Bulunamadı"
+                    }
+                }
+                let driverText = "   Şoför: \(driverInfo)"
+                let driverRect = CGRect(x: leftMargin, y: yPosition, width: contentWidth, height: lineHeight)
+                driverText.draw(in: driverRect, withAttributes: routeAttributes)
                 yPosition += lineHeight
                 
                 // Ücret bilgisi (varsa)

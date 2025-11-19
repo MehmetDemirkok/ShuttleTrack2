@@ -137,7 +137,7 @@ struct TripAssignmentView: View {
                                     }
                                 }
                                 Button(action: {
-                                    showingExportOptions = true
+                                    handleExportAction()
                                 }) {
                                     Image(systemName: "square.and.arrow.up")
                                 }
@@ -217,6 +217,8 @@ struct TripAssignmentView: View {
             .sheet(isPresented: $showingExportOptions) {
                 ExportOptionsView(
                     trips: filteredTrips,
+                    vehicles: viewModel.vehicles,
+                    drivers: viewModel.drivers,
                     exportService: exportService,
                     onExport: { fileURL in
                         exportedFileURL = fileURL
@@ -263,6 +265,26 @@ struct TripAssignmentView: View {
         viewModel.fetchVehicles(for: companyId)
         viewModel.fetchDrivers(for: companyId)
     }
+    
+    private func handleExportAction() {
+        // Export yapmadan önce verilerin yüklendiğinden emin ol
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        
+        // Eğer veriler henüz yüklenmediyse, önce yükle
+        if viewModel.vehicles.isEmpty || viewModel.drivers.isEmpty {
+            viewModel.fetchVehicles(for: companyId)
+            viewModel.fetchDrivers(for: companyId)
+            
+            // Kısa bir gecikme ile popup'ı aç (verilerin yüklenmesi için)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showingExportOptions = true
+            }
+        } else {
+            // Veriler zaten yüklü, direkt popup'ı aç
+            showingExportOptions = true
+        }
+    }
+
 }
 
 // Araçlar sayfasına benzer kompakt kart görünümü
@@ -366,6 +388,8 @@ struct TripRowCard: View {
 
 struct ExportOptionsView: View {
     let trips: [Trip]
+    let vehicles: [Vehicle]
+    let drivers: [Driver]
     let exportService: ExportService
     let onExport: (URL?) -> Void
     
@@ -464,9 +488,9 @@ struct ExportOptionsView: View {
         
         switch selectedFormat {
         case .excel:
-            fileURL = exportService.exportToExcel(trips: trips)
+            fileURL = exportService.exportToExcel(trips: trips, vehicles: vehicles, drivers: drivers)
         case .pdf:
-            fileURL = exportService.exportToPDF(trips: trips)
+            fileURL = exportService.exportToPDF(trips: trips, vehicles: vehicles, drivers: drivers)
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
